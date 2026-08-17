@@ -62,7 +62,7 @@ Não fazem parte do primeiro MVP:
 
 - Java
 - Spring Boot
-- React
+- HTML/CSS
 - TypeScript
 - MySQL/PostgreSQL
 - Docker
