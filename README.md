@@ -56,7 +56,8 @@ TechAssets/
 │   └── evidencias/
 │       ├── semana-01/README.md     # [E01] Índice de Evidências Rastreáveis E01
 │       ├── semana-02/README.md     # [E02] Índice de Evidências Rastreáveis E02
-│       └── semana-03/indice.md     # [E03] Tabela Unificada de Evidências E03
+│       ├── semana-03/README.md     # [E03] Índice de Evidências Rastreáveis E03
+│       └── semana-04/README.md     # [E04] Galeria de Protótipo e Capturas UI
 ├── src/
 │   ├── main/
 │   │   ├── java/com/techassets/
@@ -122,8 +123,11 @@ Acesse `http://localhost:8000` para testar a jornada de 5 telas.
 - 📋 **[Backlog Priorizado](docs/semana-03/backlog_priorizado.md)**
 - 🗺️ **[Mapa de Histórias (User Story Map)](docs/semana-03/mapa_de_historias.md)**
 - 🎨 **[Protótipo de Baixa Fidelidade](docs/semana-03/prototipo.md)**
-- 📌 **[Índice de Evidências E03](docs/evidencias/semana-03/indice.md)**
+- 📌 **[Índice de Evidências E03](docs/evidencias/semana-03/README.md)**
 - 🏷️ **[Release Publicada `semana-03`](https://github.com/MateusGomesSilva/TechAssets/releases/tag/semana-03)**
+
+### 📍 Semana 04 — Entrega E04 (Protótipo UI & Evidências Visuais)
+- 🖼️ **[Galeria de Evidências Visuais E04](docs/evidencias/semana-04/README.md)**
 
 ---
 
