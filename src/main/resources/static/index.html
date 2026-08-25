@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechAssets — Protótipo de Baixa Fidelidade (Semana 03 - Lab 2)</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --border-color: #cccccc;
+            --text-color: #222222;
+            --primary-color: #2b5876;
+            --accent-color: #4e4376;
+            --success-color: #2e7d32;
+            --tag-bg: #e3f2fd;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        header {
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { margin: 0; font-size: 1.6rem; color: var(--primary-color); }
+        .sub-header { font-size: 0.9rem; color: #666; margin-top: 4px; }
+
+        .wireframe-badge {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            padding: 8px 14px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .screen-panel { display: none; }
+        .screen-panel.active { display: block; }
+
+        /* Wireframe Box Styles */
+        .wireframe-box {
+            border: 1px dashed #888;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            text-align: center;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .stat-value { font-size: 1.8rem; font-weight: bold; color: var(--accent-color); }
+        .stat-label { font-size: 0.85rem; color: #555; }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .btn:hover { opacity: 0.9; }
+        .btn-secondary { background: #6c757d; }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th { background: #e9ecef; }
+
+        .banner-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .tag-pill {
+            background: var(--tag-bg);
+            color: #0d47a1;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h1>TechAssets — Gestão de TI</h1>
+            <div class="sub-header">Protótipo de Baixa Fidelidade | FAEX Engenharia de Software (Semana 03 - Lab 2)</div>
+        </div>
+        <span class="wireframe-badge">BAIXA FIDELIDADE</span>
+    </header>
+
+    <!-- Navegador de Telas do Protótipo -->
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="showScreen('screen1')">Tela 1: Dashboard</button>
+        <button class="tab-btn" onclick="showScreen('screen2')">Tela 2: Cadastrar (US-01)</button>
+        <button class="tab-btn" onclick="showScreen('screen3')">Tela 3: Confirmação (US-01)</button>
+        <button class="tab-btn" onclick="showScreen('screen4')">Tela 4: Consulta (US-02)</button>
+        <button class="tab-btn" onclick="showScreen('screen5')">Tela 5: Movimentação (US-03)</button>
+    </div>
+
+    <!-- Tela 1: Entrada / Dashboard Inicial -->
+    <div id="screen1" class="screen-panel active">
+        <div class="wireframe-box">
+            <h3>[TELA 1] Dashboard e Entrada no Sistema</h3>
+            <p><strong>Objetivo:</strong> Fornecer acesso rápido à jornada principal de cadastro e consulta de ativos.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">42</div>
+                <div class="stat-label">Total de Ativos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #28a745;">30</div>
+                <div class="stat-label">Em Uso (Alocados)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #ffc107;">8</div>
+                <div class="stat-label">Disponíveis</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #dc3545;">4</div>
+                <div class="stat-label">Em Manutenção</div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 25px; padding: 20px; background: #eef2f5;">
+            <button class="btn" onclick="showScreen('screen2')">+ CADASTRAR NOVO ATIVO</button>
+            <button class="btn btn-secondary" onclick="showScreen('screen4')">CONSULTAR BASE DE ATIVOS</button>
+        </div>
+    </div>
+
+    <!-- Tela 2: Formulário de Cadastro -->
+    <div id="screen2" class="screen-panel">
+        <div class="wireframe-box">
+            <h3>[TELA 2] Formulário de Cadastro do Ativo (US-01)</h3>
+            <p><strong>Critério de Aceitação CA01.1:</strong> Validação de campos obrigatórios marcados com (*).</p>
+        </div>
+
+        <form id="assetForm" onsubmit="handleFormSubmit(event)">
+            <div class="form-group">
+                <label for="name">Nome do Ativo*</label>
+                <input type="text" id="name" placeholder="Ex: Notebook Dell Latitude 3420" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="category">Categoria*</label>
+                    <select id="category" required>
+                        <option value="">Selecione...</option>
+                        <option value="Notebooks" selected>Notebooks</option>
+                        <option value="Monitores">Monitores</option>
+                        <option value="Servidores">Servidores</option>
+                        <option value="Periféricos">Periféricos</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="serial">Nº de Série*</label>
+                    <input type="text" id="serial" placeholder="Ex: SN-DELL-987654" required>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="responsible">Responsável Inicial*</label>
+                    <input type="text" id="responsible" placeholder="Ex: Carlos Eduardo - TI" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="location">Filial / Setor*</label>
+                    <select id="location" required>
+                        <option value="Matriz - Extrema/MG">Matriz - Extrema/MG</option>
+                        <option value="Filial - São Paulo/SP">Filial - São Paulo/SP</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button type="submit" class="btn">SALVAR ATIVO</button>
+                <button type="button" class="btn btn-secondary" onclick="showScreen('screen1')">CANCELAR</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tela 3: Confirmação e Resposta do Sistema -->
+    <div id="screen3" class="screen-panel">
+        <div class="wireframe-box">
+            <h3>[TELA 3] Resposta e Confirmação do Registro</h3>
+            <p><strong>Critério de Aceitação CA01.3:</strong> Confirmação com Tag patrimonial única gerada.</p>
+        </div>
+
+        <div class="banner-success">
+            <h2>✔ ATIVO CADASTRADO COM SUCESSO!</h2>
+            <p>O equipamento foi registrado e incorporado ao inventário patrimonial.</p>
+        </div>
+
+        <div class="wireframe-box" style="background: white;">
+            <p><strong>Tag Patrimonial Gerada:</strong> <span class="tag-pill" id="resTag">TAG-2026-0043</span></p>
+            <p><strong>Nome do Equipamento:</strong> <span id="resName">Notebook Dell Latitude 3420</span></p>
+            <p><strong>Número de Série:</strong> <span id="resSerial">SN-DELL-987654</span></p>
+            <p><strong>Responsável:</strong> <span id="resResp">Carlos Eduardo - TI</span></p>
+            <p><strong>Status:</strong> DISPONÍVEL</p>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button class="btn" onclick="showScreen('screen4')">VER NA LISTA DE ATIVOS (US-02)</button>
+            <button class="btn btn-secondary" onclick="showScreen('screen2')">CADASTRAR OUTRO ATIVO</button>
+        </div>
+    </div>
+
+    <!-- Tela 4: Consulta e Filtro -->
+    <div id="screen4" class="screen-panel">
+        <div class="wireframe-box">
+            <h3>[TELA 4] Consulta e Filtros de Ativos (US-02)</h3>
+            <p><strong>Critérios de Aceitação CA02.1 & CA02.2:</strong> Tabela com filtro de status e busca rápida.</p>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="searchInput" placeholder="Pesquisar por nome ou série..." style="flex: 1;" onkeyup="filterAssets()">
+            <select id="statusFilter" style="width: 200px;" onchange="filterAssets()">
+                <option value="TODOS">Todos os Status</option>
+                <option value="DISPONÍVEL">Disponível</option>
+                <option value="EM USO">Em Uso</option>
+                <option value="MANUTENÇÃO">Manutenção</option>
+            </select>
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>TAG</th>
+                <th>Equipamento</th>
+                <th>Nº Série</th>
+                <th>Responsável</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+            </thead>
+            <tbody id="assetsTableBody">
+            <tr>
+                <td><span class="tag-pill">TAG-2026-0043</span></td>
+                <td>Notebook Dell Latitude 3420</td>
+                <td>SN-DELL-987654</td>
+                <td>Carlos Eduardo - TI</td>
+                <td><span style="color: green; font-weight: bold;">DISPONÍVEL</span></td>
+                <td><button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.8rem;" onclick="showScreen('screen5')">Transferir</button></td>
+            </tr>
+            <tr>
+                <td><span class="tag-pill">TAG-2026-0012</span></td>
+                <td>Monitor ThinkVision 24"</td>
+                <td>SN-LNV-112233</td>
+                <td>Ana Paula - RH</td>
+                <td><span style="color: blue; font-weight: bold;">EM USO</span></td>
+                <td><button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.8rem;" onclick="showScreen('screen5')">Transferir</button></td>
+            </tr>
+            <tr>
+                <td><span class="tag-pill">TAG-2026-0005</span></td>
+                <td>Servidor PowerEdge T440</td>
+                <td>SN-DELL-009988</td>
+                <td>Suporte Técnico</td>
+                <td><span style="color: orange; font-weight: bold;">MANUTENÇÃO</span></td>
+                <td><button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.8rem;" onclick="showScreen('screen5')">Transferir</button></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Tela 5: Detalhe e Movimentação -->
+    <div id="screen5" class="screen-panel">
+        <div class="wireframe-box">
+            <h3>[TELA 5] Movimentação e Transferência de Ativo (US-03)</h3>
+            <p><strong>Critério de Aceitação CA03.1:</strong> Registro de mudança de responsável e localização com histórico.</p>
+        </div>
+
+        <div class="wireframe-box" style="background: white;">
+            <h4>Ativo Selecionado: <span class="tag-pill">TAG-2026-0043</span> - Notebook Dell Latitude 3420</h4>
+            <p><strong>Responsável Atual:</strong> Carlos Eduardo - TI | <strong>Localização:</strong> Matriz Extrema/MG</p>
+        </div>
+
+        <form onsubmit="handleTransferSubmit(event)" style="background: #eef2f5; padding: 15px; border-radius: 4px;">
+            <h4>Registrar Nova Transferência de Responsável</h4>
+            <div class="form-group">
+                <label for="newResponsible">Novo Responsável*</label>
+                <input type="text" id="newResponsible" value="Ana Paula - RH" required>
+            </div>
+            <div class="form-group">
+                <label for="newLocation">Nova Localização / Setor*</label>
+                <input type="text" id="newLocation" value="Filial Extrema - Bloco B" required>
+            </div>
+            <button type="submit" class="btn">CONFIRMAR TRANSFERÊNCIA</button>
+        </form>
+
+        <div style="margin-top: 20px;">
+            <h4>Histórico Auditável de Movimentações</h4>
+            <ul style="font-size: 0.9rem; color: #444;">
+                <li><strong>24/08/2026 14:30:</strong> Transferido para <em>Ana Paula - RH</em> (Matriz)</li>
+                <li><strong>24/08/2026 14:00:</strong> Ativo cadastrado como DISPONÍVEL por <em>Mateus Gomes</em></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen-panel').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(screenId).classList.add('active');
+        
+        const btnIndex = parseInt(screenId.replace('screen', '')) - 1;
+        const btns = document.querySelectorAll('.tab-btn');
+        if (btns[btnIndex]) {
+            btns[btnIndex].classList.add('active');
+        }
+    }
+
+    function handleFormSubmit(event) {
+        event.preventDefault();
+        const name = document.getElementById('name').value;
+        const serial = document.getElementById('serial').value;
+        const resp = document.getElementById('responsible').value;
+
+        document.getElementById('resName').innerText = name;
+        document.getElementById('resSerial').innerText = serial;
+        document.getElementById('resResp').innerText = resp;
+        
+        const randomTag = 'TAG-2026-' + Math.floor(1000 + Math.random() * 9000);
+        document.getElementById('resTag').innerText = randomTag;
+
+        showScreen('screen3');
+    }
+
+    function handleTransferSubmit(event) {
+        event.preventDefault();
+        alert('Transferência realizada com sucesso! Novo responsável registrado.');
+        showScreen('screen4');
+    }
+
+    function filterAssets() {
+        const text = document.getElementById('searchInput').value.toLowerCase();
+        const status = document.getElementById('statusFilter').value;
+        const rows = document.querySelectorAll('#assetsTableBody tr');
+
+        rows.forEach(row => {
+            const rowText = row.innerText.toLowerCase();
+            const rowStatus = row.children[4].innerText;
+            const matchText = rowText.includes(text);
+            const matchStatus = (status === 'TODOS' || rowStatus.includes(status));
+
+            if (matchText && matchStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+</script>
+</body>
+</html>

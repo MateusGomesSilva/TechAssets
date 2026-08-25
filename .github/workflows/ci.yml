@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, "semana-03-*", monster ]
+  pull_request:
+    branches: [ main, monster ]
+
+jobs:
+  verify:
+    name: Build e Testes Automatizados
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Executar Compilação e Testes (Maven)
+        run: mvn clean test
