@@ -5,102 +5,77 @@
 [![Release E02](https://img.shields.io/badge/Release-semana--02-green.svg)](https://github.com/MateusGomesSilva/TechAssets/releases/tag/semana-02)
 [![Release E03](https://img.shields.io/badge/Release-semana--03-orange.svg)](https://github.com/MateusGomesSilva/TechAssets/releases/tag/semana-03)
 
-Sistema para gestão e rastreabilidade de ativos de TI para empresas de pequeno e médio porte, desenvolvido para a disciplina de Engenharia de Software na **FAEX (Faculdade de Extrema)**.
 
----
+Sistema para gestão e rastreabilidade de ativos de TI para empresas de pequeno e médio porte.
 
-## 📌 Sobre o Projeto
+## Sobre o projeto
 
-O **TechAssets** tem como objetivo apoiar empresas no controle e acompanhamento de seus ativos de tecnologia (notebooks, monitores, servidores, periféricos). O sistema resolve a perda de visibilidade e descontrole patrimonial causados por planilhas eletrônicas dispersas.
+O TechAssets tem como objetivo apoiar empresas de pequeno e médio porte no
+controle e acompanhamento de seus ativos de tecnologia.
 
-- **Problema Selecionado:** Dificuldade de rastreamento de localização, histórico e responsáveis de equipamentos corporativos em PMEs, gerando perdas patrimoniais e compras duplicadas.
-- **Hipótese de Valor:** Plataforma simples com geração automática de Tag patrimonial única, consulta filtrada e histórico de transferências que reduz em 80% o tempo operacional de busca de equipamentos.
+O projeto busca melhorar a rastreabilidade dos equipamentos durante seu ciclo
+de utilização, movimentação, manutenção e substituição.
 
----
+## Problema
 
-## 🛠️ Tecnologias e Arquitetura
+Analistas de suporte, gestores de TI e responsáveis pelo patrimônio precisam
+localizar, acompanhar e manter informações confiáveis sobre os ativos
+tecnológicos quando equipamentos são adquiridos, movimentados, utilizados,
+enviados para manutenção, substituídos ou descartados.
 
-- **Linguagem Principal:** Java 21+
-- **Framework & Build:** Spring Boot & Apache Maven
-- **Testes Automatizados:** JUnit 5 (Jupiter)
-- **Frontend & Protótipos:** HTML5 / CSS3 / JavaScript
-- **Banco de Dados:** PostgreSQL / MySQL
-- **Nuvem / Cloud:** AWS (Região `us-east-1`, App Runner/EC2, RDS, S3, IAM, CloudWatch)
-- **Integração Contínua (CI):** GitHub Actions
+Os registros podem estar distribuídos entre planilhas, documentos e controles
+manuais, resultando em dificuldade de rastreabilidade, retrabalho,
+informações desatualizadas e dificuldades no planejamento de compras e
+substituições.
 
----
+## Público afetado
 
-## 📁 Estrutura do Repositório
+O projeto é direcionado principalmente para:
 
-```text
-TechAssets/
-├── .github/
-│   ├── ISSUE_TEMPLATE/        # Modelos formais para relatar bugs e melhorias
-│   │   ├── bug_report.md
-│   │   └── feature_request.md
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── workflows/
-│       └── ci.yml             # Workflow de CI do GitHub Actions (Java 21 + Maven)
-├── docs/
-│   ├── semana-01/
-│   │   └── canvas_descoberta.md    # [E01] Canvas de Descoberta, Entrevistas e Matriz de Decisão
-│   ├── semana-02/
-│   │   ├── visao_e_escopo.md       # [E02] Visão do Produto, Escopo do MVP e Indicadores
-│   │   ├── plano_14_entregas.md    # [E02] Modelo de Processo Iterativo e Calendário de 14 Semanas
-│   │   ├── riscos_v1_e_mudanca_escopo.md # [E02] Matriz de Responsabilidades, Riscos v1 e DoD
-│   │   └── aws_plano_inicial.md    # [E02] Decisão Inicial da Arquitetura AWS e Free Tier
-│   ├── semana-03/
-│   │   ├── backlog_priorizado.md   # [E03] Backlog Priorizado (US-01 a US-05) e Corte de Escopo
-│   │   ├── mapa_de_historias.md    # [E03] User Story Map da Jornada do Usuário
-│   │   └── prototipo.md            # [E03] Protótipo de Baixa Fidelidade de 5 Telas e Peer Review
-│   └── evidencias/
-│       ├── semana-01/README.md     # [E01] Índice de Evidências Rastreáveis E01
-│       ├── semana-02/README.md     # [E02] Índice de Evidências Rastreáveis E02
-│       ├── semana-03/README.md     # [E03] Índice de Evidências Rastreáveis E03
-│       └── semana-04/README.md     # [E04] Galeria de Protótipo e Capturas UI
-├── src/
-│   ├── main/
-│   │   ├── java/com/techassets/
-│   │   │   ├── model/             # Entidades (Asset.java, AssetStatus.java)
-│   │   │   └── service/           # Regras de Negócio do MVP (AssetService.java)
-│   │   └── resources/static/
-│   │       └── index.html         # Protótipo Interativo Web de Baixa Fidelidade
-│   └── test/
-│       └── java/com/techassets/
-│           ├── AssetServiceTest.java # Suíte de Testes Automatizados JUnit 5
-│           └── TestRunner.java       # Executável de Testes Locais CLI
-├── .gitignore                      # Regras de exclusão do Git
-├── pom.xml                         # Configuração Maven
-└── README.md                       # Documentação principal
-```
+- Analistas de suporte;
+- Gestores de TI;
+- Responsáveis pelo patrimônio;
+- Colaboradores que utilizam equipamentos corporativos;
+- Empresas de pequeno e médio porte.
 
----
+## Escopo inicial
 
-## 🚀 Como Executar Localmente
+O MVP deverá investigar e apoiar:
 
-### 1. Pré-requisitos
-- **Java JDK 21+** instalado (`java -version`).
-- **Apache Maven** (opcional, para execução de comandos `mvn`).
+- Cadastro de ativos;
+- Identificação do responsável;
+- Localização do equipamento;
+- Situação/status do ativo;
+- Movimentação dos equipamentos;
+- Registro de manutenção;
+- Histórico dos ativos;
+- Inventário de equipamentos.
 
-### 2. Executar os Testes Automatizados (Verificação Local)
-No terminal do projeto, execute o comando de testes Maven:
+## Fora do escopo inicial
 
-```bash
-# Execução via Maven
-mvn test
+Não fazem parte do primeiro MVP:
 
-# Ou via compilação direta standalone
-javac -d target/classes src/main/java/com/techassets/model/*.java src/main/java/com/techassets/service/*.java src/test/java/com/techassets/TestRunner.java
-java -ea -cp target/classes com.techassets.TestRunner
-```
+- Gestão financeira completa;
+- Controle contábil;
+- Gestão completa de compras;
+- Gestão de fornecedores;
+- Gerenciamento de licenças de software;
+- Monitoramento técnico em tempo real;
+- Integrações externas obrigatórias;
+- Automação completa do descarte de equipamentos.
 
-### 3. Visualizar o Protótipo Interativo de Baixa Fidelidade
-Abra o arquivo `src/main/resources/static/index.html` diretamente em qualquer navegador web ou suba um servidor HTTP:
+## Tecnologias previstas
 
-```bash
-python -m http.server 8000 --directory src/main/resources/static
-```
-Acesse `http://localhost:8000` para testar a jornada de 5 telas.
+- Java
+- Spring Boot
+- HTML/CSS
+- TypeScript
+- MySQL/PostgreSQL
+- Docker
+- AWS
+
+As tecnologias e a arquitetura definitiva poderão ser ajustadas conforme os
+requisitos e resultados das validações com os usuários.
 
 ---
 
