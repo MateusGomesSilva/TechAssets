@@ -140,9 +140,10 @@ Integrante 2 — Matheus Gomes da Silva
 
 Responsabilidades:
 
-* [RESPONSABILIDADE REAL];
-* [CONTRIBUIÇÃO REAL];
-* [IMPLEMENTAÇÃO REAL];
+* modelagem do sistema;
+* análise das responsabilidades das classes;
+* contribuição na definição da arquitetura;
+* implementação/revisão das funcionalidades relacionadas aos ativos;
 * revisão técnica.
 
 12. Rastreabilidade
