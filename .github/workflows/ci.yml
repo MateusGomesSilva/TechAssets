@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [ main, "semana-03-*", monster ]
+    branches: [ main, "semana-03-*", monster, code ]
   pull_request:
-    branches: [ main, monster ]
+    branches: [ main, monster, code ]
 
 jobs:
   verify:
-    name: Build e Testes Automatizados
+    name: Backend - Build e Testes Automatizados (Maven)
     runs-on: ubuntu-latest
 
     steps:
@@ -24,3 +24,26 @@ jobs:
 
       - name: Executar Compilação e Testes (Maven)
         run: mvn clean test
+
+  frontend:
+    name: Frontend - Build e Validação do Bundle (Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'techassets/package-lock.json'
+
+      - name: Instalar Dependências (npm ci)
+        working-directory: ./techassets
+        run: npm ci
+
+      - name: Compilar Bundle de Produção (Vite)
+        working-directory: ./techassets
+        run: npm run build
