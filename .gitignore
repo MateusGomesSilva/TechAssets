@@ -29,3 +29,11 @@ Thumbs.db
 
 # Scratch files
 scratch/
+
+
+# Node.js / Front-end (techassets)
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vercel/
