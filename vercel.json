@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
+  "installCommand": "npm --prefix techassets install",
+  "buildCommand": "npm --prefix techassets run build",
+  "outputDirectory": "techassets/dist",
   "rewrites": [
     {
       "source": "/(.*)",
@@ -8,4 +10,3 @@
     }
   ]
 }
-
