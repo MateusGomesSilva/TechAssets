@@ -90,10 +90,10 @@ export function SupportView({
     const linkedAsset = form.assetId ? assetById.get(form.assetId) : null;
     const created = onAddTicket
       ? onAddTicket({
-          ...form,
-          assetId: linkedAsset ? linkedAsset.id : '',
-          assetName: linkedAsset ? linkedAsset.name : ''
-        })
+        ...form,
+        assetId: linkedAsset ? linkedAsset.id : '',
+        assetName: linkedAsset ? linkedAsset.name : ''
+      })
       : null;
 
     setShowTicketModal(false);
