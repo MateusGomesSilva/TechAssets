@@ -7,15 +7,51 @@ import {
   Monitor,
   Headphones,
   Tv,
-  ArrowRight,
   AlertTriangle,
   Clock3,
   ShieldCheck,
-  Package,
-  Layers,
-  CheckCircle2,
-  Wrench
+  CheckCircle2
 } from 'lucide-react';
+import {
+  useI18n,
+  categoryLabel,
+  movementTypeLabel,
+  formatMoment,
+  formatPercent,
+  resolveText
+} from '../i18n';
+
+const CATEGORY_ICONS = {
+  Notebook: Laptop,
+  Notebooks: Laptop,
+  Celular: Smartphone,
+  Celulares: Smartphone,
+  Tablet: Tablet,
+  Tablets: Tablet,
+  Desktop: Monitor,
+  Desktops: Monitor,
+  Monitor: Tv,
+  Monitores: Tv,
+  Acessório: Headphones,
+  Acessórios: Headphones
+};
+
+// Canonical category keys (stored values) + chart colors
+const CATEGORY_DEFS = [
+  { label: 'Notebooks', singular: 'Notebook', color: '#0d6efd' },
+  { label: 'Celulares', singular: 'Celular', color: '#10b981' },
+  { label: 'Tablets', singular: 'Tablet', color: '#8b5cf6' },
+  { label: 'Desktops', singular: 'Desktop', color: '#f59e0b' },
+  { label: 'Monitores', singular: 'Monitor', color: '#6366f1' },
+  { label: 'Acessórios', singular: 'Acessório', color: '#14b8a6' }
+];
+
+function AlertIcon({ tone }) {
+  if (tone === 'danger') return <AlertTriangle size={16} />;
+  if (tone === 'warning') return <ShieldCheck size={16} />;
+  if (tone === 'info') return <Clock3 size={16} />;
+  return <CheckCircle2 size={16} />;
+}
 
 export function DashboardView({
   assets = [],
@@ -25,174 +61,167 @@ export function DashboardView({
   onSelectAsset,
   onSelectCategory
 }) {
-  const categoryIconMap = {
-    'Notebook': Laptop,
-    'Notebooks': Laptop,
-    'Celular': Smartphone,
-    'Celulares': Smartphone,
-    'Tablet': Tablet,
-    'Tablets': Tablet,
-    'Desktop': Monitor,
-    'Desktops': Monitor,
-    'Monitor': Tv,
-    'Monitores': Tv,
-    'Acessório': Headphones,
-    'Acessórios': Headphones
+  const { t, language } = useI18n();
+
+  // Dynamic KPI calculations based on real registered assets
+  const totalAssets = assets.length;
+  const inUseCount = assets.filter((a) => a.status === 'Em uso').length;
+  const availableCount = assets.filter((a) => a.status === 'Disponível').length;
+  const maintenanceCount = assets.filter((a) => a.status === 'Em manutenção').length;
+  const pct = (n) => formatPercent(n, totalAssets, language);
+
+  const isMatchCat = (catDef, itemCategory) => {
+    if (!itemCategory) return false;
+    const c = itemCategory.toLowerCase().trim();
+    const singular = catDef.singular.toLowerCase();
+    return (
+      c === catDef.label.toLowerCase() ||
+      c === singular ||
+      c.startsWith(singular) ||
+      (singular === 'acessório' && (c === 'acessorio' || c === 'acessorios'))
+    );
   };
 
-  const categoriesDonut = [
-    { label: 'Notebooks', count: 512, percent: 41, color: '#0d6efd' },
-    { label: 'Celulares', count: 342, percent: 27, color: '#10b981' },
-    { label: 'Desktops', count: 198, percent: 16, color: '#f59e0b' },
-    { label: 'Monitores', count: 128, percent: 10, color: '#6366f1' },
-    { label: 'Acessórios', count: 68, percent: 5, color: '#14b8a6' }
-  ];
+  // Dynamic category calculations
+  const categoriesDonut = CATEGORY_DEFS.map((def) => {
+    const count = assets.filter((a) => isMatchCat(def, a.category)).length;
+    const percent = totalAssets > 0 ? Math.round((count / totalAssets) * 100) : 0;
+    return { ...def, name: categoryLabel(t, def.label), count, percent };
+  });
 
-  const categoryBars = [
-    { label: 'Notebooks', count: 512, heightPercent: 95 },
-    { label: 'Celulares', count: 342, heightPercent: 65 },
-    { label: 'Tablets', count: 94, heightPercent: 25 },
-    { label: 'Desktops', count: 72, heightPercent: 19 },
-    { label: 'Monitores', count: 34, heightPercent: 12 },
-    { label: 'Acessórios', count: 64, heightPercent: 17 }
-  ];
+  // SVG donut segments
+  let accumulatedDashOffset = 0;
+  const donutSegments = categoriesDonut
+    .filter((cat) => cat.count > 0)
+    .map((cat) => {
+      const dashLength = totalAssets > 0 ? (cat.count / totalAssets) * 390 : 0;
+      const segment = {
+        ...cat,
+        strokeDasharray: `${dashLength} 390`,
+        strokeDashoffset: -accumulatedDashOffset
+      };
+      accumulatedDashOffset += dashLength;
+      return segment;
+    });
+
+  // Bar heights proportional to the real counts
+  const maxCategoryCount = Math.max(1, ...categoriesDonut.map((c) => c.count));
+  const categoryBars = categoriesDonut.map((cat) => ({
+    ...cat,
+    heightPercent: cat.count > 0 ? Math.max(15, Math.round((cat.count / maxCategoryCount) * 88)) : 6
+  }));
+
+  const assetById = new Map(assets.map((a) => [a.id, a]));
 
   return (
     <div className="view-container dashboard-view">
       {/* Page Title & Subtitle */}
       <div className="view-header">
         <div className="view-title-block">
-          <h1 className="view-title">Dashboard</h1>
-          <p className="view-subtitle">Visão geral dos seus ativos</p>
+          <h1 className="view-title">{t('dashboard.title')}</h1>
+          <p className="view-subtitle">{t('dashboard.subtitle')}</p>
         </div>
         <div className="view-header-actions">
-          <button
-            className="btn btn-primary"
-            onClick={() => onNavigate('new-asset')}
-          >
-            + Novo ativo
+          <button className="btn btn-primary" onClick={() => onNavigate('new-asset')}>
+            {t('dashboard.newAsset')}
           </button>
         </div>
       </div>
 
       {/* 4 Metric KPI Cards */}
       <div className="kpi-grid">
-        {/* KPI 1 */}
         <div className="kpi-card" onClick={() => onNavigate('assets')}>
           <div className="kpi-header">
-            <span className="kpi-title">Total de ativos</span>
+            <span className="kpi-title">{t('dashboard.totalAssets')}</span>
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-number">1.248</span>
+            <span className="kpi-number">{totalAssets}</span>
           </div>
           <div className="kpi-trend positive">
             <TrendingUp size={14} />
-            <span>+12% este mês</span>
+            <span>{t('dashboard.registeredCount', { count: totalAssets })}</span>
           </div>
         </div>
 
-        {/* KPI 2 */}
         <div className="kpi-card" onClick={() => onNavigate('assets')}>
           <div className="kpi-header">
-            <span className="kpi-title">Em uso</span>
+            <span className="kpi-title">{t('dashboard.inUse')}</span>
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-number text-success">856</span>
+            <span className="kpi-number text-success">{inUseCount}</span>
           </div>
           <div className="kpi-trend neutral">
-            <span>68,6% do total</span>
+            <span>{t('dashboard.pctOfTotal', { pct: pct(inUseCount) })}</span>
           </div>
         </div>
 
-        {/* KPI 3 */}
         <div className="kpi-card" onClick={() => onNavigate('assets')}>
           <div className="kpi-header">
-            <span className="kpi-title">Disponíveis</span>
+            <span className="kpi-title">{t('dashboard.available')}</span>
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-number text-warning">256</span>
+            <span className="kpi-number text-warning">{availableCount}</span>
           </div>
           <div className="kpi-trend neutral">
-            <span>20,5% do total</span>
+            <span>{t('dashboard.pctOfTotal', { pct: pct(availableCount) })}</span>
           </div>
         </div>
 
-        {/* KPI 4 */}
         <div className="kpi-card" onClick={() => onNavigate('maintenances')}>
           <div className="kpi-header">
-            <span className="kpi-title">Em manutenção</span>
+            <span className="kpi-title">{t('dashboard.inMaintenance')}</span>
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-number text-purple">136</span>
+            <span className="kpi-number text-purple">{maintenanceCount}</span>
           </div>
           <div className="kpi-trend neutral">
-            <span>10,9% do total</span>
+            <span>{t('dashboard.pctOfTotal', { pct: pct(maintenanceCount) })}</span>
           </div>
         </div>
       </div>
 
       {/* Middle Row: Inventory Summary Donut + Recent Movements */}
       <div className="dashboard-grid-row">
-        {/* Inventory Donut Section */}
         <section className="dashboard-card card-donut">
           <div className="card-header-clean">
-            <h2 className="card-title">Resumo do inventário</h2>
+            <h2 className="card-title">{t('dashboard.inventorySummary')}</h2>
           </div>
 
           <div className="donut-chart-container">
-            {/* SVG Donut Chart */}
             <div className="donut-svg-wrapper">
               <svg viewBox="0 0 160 160" className="donut-svg">
-                {/* Background Track */}
-                <circle cx="80" cy="80" r="62" fill="transparent" stroke="#f1f5f9" strokeWidth="22" />
-                {/* 512 (41%) Notebooks */}
-                <circle
-                  cx="80" cy="80" r="62" fill="transparent"
-                  stroke="#0d6efd" strokeWidth="22"
-                  strokeDasharray="160 390" strokeDashoffset="0"
-                />
-                {/* 342 (27%) Celulares */}
-                <circle
-                  cx="80" cy="80" r="62" fill="transparent"
-                  stroke="#10b981" strokeWidth="22"
-                  strokeDasharray="105 390" strokeDashoffset="-160"
-                />
-                {/* 198 (16%) Desktops */}
-                <circle
-                  cx="80" cy="80" r="62" fill="transparent"
-                  stroke="#f59e0b" strokeWidth="22"
-                  strokeDasharray="62 390" strokeDashoffset="-265"
-                />
-                {/* 128 (10%) Monitores */}
-                <circle
-                  cx="80" cy="80" r="62" fill="transparent"
-                  stroke="#6366f1" strokeWidth="22"
-                  strokeDasharray="39 390" strokeDashoffset="-327"
-                />
-                {/* 68 (5%) Acessórios */}
-                <circle
-                  cx="80" cy="80" r="62" fill="transparent"
-                  stroke="#14b8a6" strokeWidth="22"
-                  strokeDasharray="20 390" strokeDashoffset="-366"
-                />
+                <circle cx="80" cy="80" r="62" fill="transparent" className="donut-track" strokeWidth="22" />
+                {donutSegments.map((seg, idx) => (
+                  <circle
+                    key={idx}
+                    cx="80"
+                    cy="80"
+                    r="62"
+                    fill="transparent"
+                    stroke={seg.color}
+                    strokeWidth="22"
+                    strokeDasharray={seg.strokeDasharray}
+                    strokeDashoffset={seg.strokeDashoffset}
+                  />
+                ))}
               </svg>
               <div className="donut-center-info">
-                <span className="donut-total">1.248</span>
-                <span className="donut-sub">Total</span>
+                <span className="donut-total">{totalAssets}</span>
+                <span className="donut-sub">{t('dashboard.total')}</span>
               </div>
             </div>
 
-            {/* Legend list */}
             <div className="donut-legend-list">
               {categoriesDonut.map((item, idx) => (
                 <div
                   key={idx}
                   className="donut-legend-item"
                   onClick={() => onSelectCategory && onSelectCategory(item.label)}
-                  title={`Filtrar por ${item.label}`}
+                  title={t('dashboard.filterBy', { name: item.name })}
+                  style={{ cursor: 'pointer' }}
                 >
                   <span className="legend-dot" style={{ backgroundColor: item.color }} />
-                  <span className="legend-name">{item.label}</span>
+                  <span className="legend-name">{item.name}</span>
                   <span className="legend-count-pct">
                     <b>{item.count}</b> <small>({item.percent}%)</small>
                   </span>
@@ -205,26 +234,34 @@ export function DashboardView({
         {/* Recent Movements Section */}
         <section className="dashboard-card card-movements">
           <div className="card-header-clean">
-            <h2 className="card-title">Movimentações recentes</h2>
+            <h2 className="card-title">{t('dashboard.recentMovements')}</h2>
           </div>
 
           <div className="movements-list">
-            {movements.map((mov) => {
-              const Icon = categoryIconMap[mov.assetName] || Laptop;
+            {movements.slice(0, 6).map((mov) => {
+              const asset = assetById.get(mov.assetId);
+              const Icon = CATEGORY_ICONS[asset?.category] || Laptop;
               return (
-                <div key={mov.id} className="movement-row">
+                <div
+                  key={mov.id}
+                  className="movement-row"
+                  onClick={() => asset && onSelectAsset && onSelectAsset(asset)}
+                  style={asset ? { cursor: 'pointer' } : undefined}
+                >
                   <div className="movement-device-icon">
                     <Icon size={18} />
                   </div>
                   <div className="movement-details">
                     <span className="movement-asset-name">{mov.assetName}</span>
-                    <span className="movement-route-text">{mov.route}</span>
+                    <span className="movement-route-text">
+                      {resolveText(t, mov.from)} → {resolveText(t, mov.to)}
+                    </span>
                   </div>
                   <div className="movement-status-meta">
                     <span className={`movement-tag ${mov.tagTone}`}>
-                      {mov.type}
+                      {movementTypeLabel(t, mov.type)}
                     </span>
-                    <small className="movement-time">{mov.time}</small>
+                    <small className="movement-time">{formatMoment(mov.at, language, t)}</small>
                   </div>
                 </div>
               );
@@ -232,11 +269,8 @@ export function DashboardView({
           </div>
 
           <div className="card-footer-action">
-            <button
-              className="card-action-link"
-              onClick={() => onNavigate('movements')}
-            >
-              Ver todas
+            <button className="card-action-link" onClick={() => onNavigate('movements')}>
+              {t('dashboard.viewAll')}
             </button>
           </div>
         </section>
@@ -244,15 +278,11 @@ export function DashboardView({
 
       {/* Bottom Row: Alerts and pendencies + Assets by Category */}
       <div className="dashboard-grid-row">
-        {/* Alerts and Pendencies */}
         <section className="dashboard-card card-alerts">
           <div className="card-header-clean with-link">
-            <h2 className="card-title">Alertas e pendências</h2>
-            <button
-              className="card-header-link"
-              onClick={() => onNavigate('maintenances')}
-            >
-              Ver todos
+            <h2 className="card-title">{t('dashboard.alerts')}</h2>
+            <button className="card-header-link" onClick={() => onNavigate('maintenances')}>
+              {t('dashboard.viewAllAlerts')}
             </button>
           </div>
 
@@ -260,17 +290,11 @@ export function DashboardView({
             {alerts.map((alt) => (
               <div
                 key={alt.id}
-                className="alert-clean-item"
-                onClick={() => onNavigate('maintenances')}
+                className={`alert-clean-item ${alt.count === 0 ? 'alert-clean-ok' : ''}`}
+                onClick={() => onNavigate(alt.route || 'maintenances')}
               >
                 <div className={`alert-avatar alert-avatar-${alt.tone}`}>
-                  {alt.tone === 'danger' ? (
-                    <AlertTriangle size={16} />
-                  ) : alt.tone === 'warning' ? (
-                    <ShieldCheck size={16} />
-                  ) : (
-                    <Clock3 size={16} />
-                  )}
+                  <AlertIcon tone={alt.tone} />
                 </div>
                 <div className="alert-content">
                   <span className="alert-main-text">{alt.text}</span>
@@ -284,12 +308,9 @@ export function DashboardView({
         {/* Assets by Category Bar Chart */}
         <section className="dashboard-card card-barchart">
           <div className="card-header-clean with-link">
-            <h2 className="card-title">Ativos por categoria</h2>
-            <button
-              className="card-header-link"
-              onClick={() => onNavigate('reports')}
-            >
-              Ver relatório
+            <h2 className="card-title">{t('dashboard.assetsByCategory')}</h2>
+            <button className="card-header-link" onClick={() => onNavigate('reports')}>
+              {t('dashboard.viewReport')}
             </button>
           </div>
 
@@ -300,16 +321,14 @@ export function DashboardView({
                   key={idx}
                   className="chart-bar-column"
                   onClick={() => onSelectCategory && onSelectCategory(bar.label)}
-                  title={`${bar.label}: ${bar.count} ativos`}
+                  title={t('dashboard.barTitle', { name: bar.name, count: bar.count })}
+                  style={{ cursor: 'pointer' }}
                 >
                   <span className="bar-top-value">{bar.count}</span>
                   <div className="bar-track">
-                    <div
-                      className="bar-fill"
-                      style={{ height: `${bar.heightPercent}%` }}
-                    />
+                    <div className="bar-fill" style={{ height: `${bar.heightPercent}%` }} />
                   </div>
-                  <span className="bar-label">{bar.label}</span>
+                  <span className="bar-label">{bar.name}</span>
                 </div>
               ))}
             </div>
@@ -319,4 +338,3 @@ export function DashboardView({
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -9,7 +9,6 @@ import {
   ArrowUpDown,
   Download,
   Trash2,
-  CheckCircle2,
   Laptop,
   Smartphone,
   Tablet,
@@ -19,6 +18,40 @@ import {
   X
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { useI18n, categoryLabel, statusLabel, formatDate, formatNumber } from '../i18n';
+
+const CATEGORY_ICONS = {
+  Notebook: Laptop,
+  Notebooks: Laptop,
+  Celular: Smartphone,
+  Celulares: Smartphone,
+  Tablet: Tablet,
+  Tablets: Tablet,
+  Desktop: Monitor,
+  Desktops: Monitor,
+  Monitor: Tv,
+  Monitores: Tv,
+  Acessório: Headphones,
+  Acessórios: Headphones
+};
+
+// Canonical (stored) values; labels are translated when rendered
+const CATEGORIES = ['Todos', 'Notebooks', 'Celulares', 'Tablets', 'Desktops', 'Monitores', 'Acessórios'];
+const STATUSES = ['Todos', 'Em uso', 'Disponível', 'Em manutenção', 'Descartado'];
+
+const isMatchCategory = (selected, itemCategory) => {
+  if (!selected || selected === 'Todos') return true;
+  if (!itemCategory) return false;
+  const s = selected.toLowerCase().trim();
+  const c = itemCategory.toLowerCase().trim();
+  if (s === c) return true;
+  if (s.startsWith(c) || c.startsWith(s)) return true;
+  if ((s === 'acessórios' || s === 'acessorios') && (c === 'acessório' || c === 'acessorio')) return true;
+  if ((c === 'acessórios' || c === 'acessorios') && (s === 'acessório' || s === 'acessorio')) return true;
+  if ((s === 'monitores' && c === 'monitor') || (s === 'monitor' && c === 'monitores')) return true;
+  if ((s === 'celulares' && c === 'celular') || (s === 'celular' && c === 'celulares')) return true;
+  return false;
+};
 
 export function AssetListView({
   assets = [],
@@ -26,8 +59,10 @@ export function AssetListView({
   onNavigate,
   onDeleteAsset,
   initialCategory = null,
+  onCategoryChange,
   onNotify
 }) {
+  const { t, language } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || 'Todos');
   const [selectedStatus, setSelectedStatus] = useState('Todos');
@@ -37,40 +72,38 @@ export function AssetListView({
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
   const itemsPerPage = 8;
 
-  const categoryIcons = {
-    'Notebook': Laptop,
-    'Celular': Smartphone,
-    'Tablet': Tablet,
-    'Desktop': Monitor,
-    'Monitor': Tv,
-    'Acessório': Headphones
-  };
+  // Keep selectedCategory in sync when initialCategory changes from outside (e.g. sidebar navigation)
+  useEffect(() => {
+    if (initialCategory) {
+      setSelectedCategory(initialCategory);
+      setCurrentPage(1);
+    } else if (initialCategory === null) {
+      setSelectedCategory('Todos');
+      setCurrentPage(1);
+    }
+  }, [initialCategory]);
 
-  const categories = ['Todos', 'Notebook', 'Celular', 'Tablet', 'Desktop', 'Monitor', 'Acessório'];
-  const statuses = ['Todos', 'Em uso', 'Disponível', 'Em manutenção', 'Descartado'];
+  const handleCategorySelect = (cat) => {
+    setSelectedCategory(cat);
+    setCurrentPage(1);
+    if (onCategoryChange) {
+      onCategoryChange(cat === 'Todos' ? null : cat);
+    }
+  };
 
   // Filter & Search
   const filteredAssets = useMemo(() => {
+    const q = searchTerm.toLowerCase();
     return assets.filter((asset) => {
       const matchSearch =
-        asset.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (asset.person && asset.person.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (asset.location && asset.location.toLowerCase().includes(searchTerm.toLowerCase()));
+        asset.id.toLowerCase().includes(q) ||
+        asset.name.toLowerCase().includes(q) ||
+        asset.model.toLowerCase().includes(q) ||
+        (asset.person && asset.person.toLowerCase().includes(q)) ||
+        (asset.location && asset.location.toLowerCase().includes(q));
 
-      const matchCategory =
-        selectedCategory === 'Todos' ||
-        asset.category.toLowerCase().includes(selectedCategory.toLowerCase()) ||
-        (selectedCategory === 'Notebooks' && asset.category === 'Notebook') ||
-        (selectedCategory === 'Celulares' && asset.category === 'Celular') ||
-        (selectedCategory === 'Tablets' && asset.category === 'Tablet') ||
-        (selectedCategory === 'Desktops' && asset.category === 'Desktop') ||
-        (selectedCategory === 'Monitores' && asset.category === 'Monitor') ||
-        (selectedCategory === 'Acessórios' && asset.category === 'Acessório');
-
-      const matchStatus =
-        selectedStatus === 'Todos' || asset.status === selectedStatus;
+      const matchCategory = isMatchCategory(selectedCategory, asset.category);
+      const matchStatus = selectedStatus === 'Todos' || asset.status === selectedStatus;
 
       return matchSearch && matchCategory && matchStatus;
     });
@@ -79,23 +112,19 @@ export function AssetListView({
   // Sorting
   const sortedAssets = useMemo(() => {
     return [...filteredAssets].sort((a, b) => {
-      let aVal = a[sortField] || '';
-      let bVal = b[sortField] || '';
+      const aVal = a[sortField] || '';
+      const bVal = b[sortField] || '';
       if (typeof aVal === 'string') {
-        return sortDirection === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
+        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       }
       return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
     });
   }, [filteredAssets, sortField, sortDirection]);
 
-  // Pagination
+  // Pagination (stays valid when assets are removed / filtered)
   const totalPages = Math.max(1, Math.ceil(sortedAssets.length / itemsPerPage));
-  const paginatedAssets = sortedAssets.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedAssets = sortedAssets.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -107,36 +136,49 @@ export function AssetListView({
   };
 
   const handleExportCSV = () => {
-    const headers = ['Patrimônio', 'Nome', 'Categoria', 'Estado', 'Responsável', 'Localização', 'Garantia'];
+    const quote = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const headers = [
+      t('assets.colId'),
+      t('assets.colName'),
+      t('assets.colCategory'),
+      t('assets.colStatus'),
+      t('assets.colPerson'),
+      t('assets.colLocation'),
+      t('detail.warrantyUntil')
+    ];
     const rows = filteredAssets.map((a) => [
       a.id,
-      `"${a.name}"`,
-      a.category,
-      a.status,
-      `"${a.person || '-'}"`,
-      `"${a.location || '-'}"`,
-      a.warranty || '-'
+      a.name,
+      categoryLabel(t, a.category),
+      statusLabel(t, a.status),
+      a.person || '-',
+      a.location || '-',
+      a.warranty ? formatDate(a.warranty, language) : '-'
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csv = [headers, ...rows].map((r) => r.map(quote).join(',')).join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `techassets_inventario_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.href = url;
+    link.download = `techassets_inventory_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    if (onNotify) onNotify('Relatório CSV exportado com sucesso.');
+    URL.revokeObjectURL(url);
+    if (onNotify) onNotify(t('assets.exportSuccess'));
   };
+
+  const filtersActive = selectedCategory !== 'Todos' || selectedStatus !== 'Todos';
 
   return (
     <div className="view-container asset-list-view">
-      {/* Top Filter and Action Bar (Matching 04-lista-de-ativos.png) */}
+      {/* Top Filter and Action Bar */}
       <div className="asset-list-toolbar">
         <div className="toolbar-search-box">
           <Search size={18} className="search-icon" />
           <input
             type="text"
-            placeholder="Buscar ativo, patrimônio, responsável..."
+            placeholder={t('assets.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -147,7 +189,7 @@ export function AssetListView({
             <button
               className="clear-search-btn"
               onClick={() => setSearchTerm('')}
-              aria-label="Limpar busca"
+              aria-label={t('assets.clearSearch')}
             >
               <X size={14} />
             </button>
@@ -158,36 +200,33 @@ export function AssetListView({
           {/* Filters Dropdown */}
           <div className="filter-dropdown-wrapper">
             <button
-              className={`btn-toolbar-filter ${showFiltersDropdown || selectedCategory !== 'Todos' || selectedStatus !== 'Todos' ? 'active' : ''}`}
+              className={`btn-toolbar-filter ${showFiltersDropdown || filtersActive ? 'active' : ''}`}
               onClick={() => setShowFiltersDropdown(!showFiltersDropdown)}
             >
               <Filter size={16} />
-              <span>Filtros</span>
-              {(selectedCategory !== 'Todos' || selectedStatus !== 'Todos') && (
-                <span className="filter-applied-dot" />
-              )}
+              <span>{t('assets.filters')}</span>
+              {filtersActive && <span className="filter-applied-dot" />}
               <ChevronDown size={14} />
             </button>
 
             {showFiltersDropdown && (
               <div className="filter-popup-card">
                 <div className="filter-group">
-                  <label>Categoria:</label>
+                  <label>{t('assets.categoryLabel')}</label>
                   <select
                     value={selectedCategory}
-                    onChange={(e) => {
-                      setSelectedCategory(e.target.value);
-                      setCurrentPage(1);
-                    }}
+                    onChange={(e) => handleCategorySelect(e.target.value)}
                   >
-                    {categories.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {categoryLabel(t, c)}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="filter-group">
-                  <label>Estado:</label>
+                  <label>{t('assets.statusLabel')}</label>
                   <select
                     value={selectedStatus}
                     onChange={(e) => {
@@ -195,8 +234,10 @@ export function AssetListView({
                       setCurrentPage(1);
                     }}
                   >
-                    {statuses.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                    {STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {statusLabel(t, s)}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -205,19 +246,16 @@ export function AssetListView({
                   <button
                     className="btn-filter-reset"
                     onClick={() => {
-                      setSelectedCategory('Todos');
+                      handleCategorySelect('Todos');
                       setSelectedStatus('Todos');
                       setSearchTerm('');
                       setShowFiltersDropdown(false);
                     }}
                   >
-                    Limpar
+                    {t('common.clear')}
                   </button>
-                  <button
-                    className="btn-filter-apply"
-                    onClick={() => setShowFiltersDropdown(false)}
-                  >
-                    Aplicar
+                  <button className="btn-filter-apply" onClick={() => setShowFiltersDropdown(false)}>
+                    {t('common.apply')}
                   </button>
                 </div>
               </div>
@@ -227,90 +265,71 @@ export function AssetListView({
           {/* Export CSV button */}
           <button
             className="btn-toolbar-secondary"
-            title="Exportar dados para planilha"
+            title={t('assets.exportTitle')}
             onClick={handleExportCSV}
           >
             <Download size={16} />
-            <span className="hide-on-mobile">Exportar</span>
+            <span className="hide-on-mobile">{t('assets.export')}</span>
           </button>
 
           {/* New Asset Button */}
-          <button
-            className="btn-toolbar-primary"
-            onClick={() => onNavigate('new-asset')}
-          >
+          <button className="btn-toolbar-primary" onClick={() => onNavigate('new-asset')}>
             <Plus size={16} />
-            <span>Novo ativo</span>
+            <span>{t('assets.newAsset')}</span>
           </button>
         </div>
       </div>
 
-      {/* Category Pills Strip for instant tactile filtering */}
+      {/* Category Pills Strip for instant filtering */}
       <div className="category-quick-pills">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            className={`category-pill ${selectedCategory === cat ? 'active' : ''}`}
-            onClick={() => {
-              setSelectedCategory(cat);
-              setCurrentPage(1);
-            }}
-          >
-            {cat}
-          </button>
-        ))}
+        {CATEGORIES.map((cat) => {
+          const isAllSelected = !selectedCategory || selectedCategory === 'Todos';
+          const isActive =
+            cat === 'Todos'
+              ? isAllSelected
+              : !isAllSelected && isMatchCategory(selectedCategory, cat);
+          return (
+            <button
+              key={cat}
+              className={`category-pill ${isActive ? 'active' : ''}`}
+              onClick={() => handleCategorySelect(cat)}
+            >
+              {categoryLabel(t, cat)}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Main Asset Table Card (Matching 04-lista-de-ativos.png) */}
+      {/* Main Asset Table Card */}
       <div className="asset-table-card">
         <div className="table-responsive-container">
           <table className="clean-data-table">
             <thead>
               <tr>
-                <th onClick={() => handleSort('id')} className="sortable-th">
-                  <div className="th-content">
-                    <span>Patrimônio</span>
-                    <ArrowUpDown size={13} className="sort-icon" />
-                  </div>
-                </th>
-                <th onClick={() => handleSort('name')} className="sortable-th">
-                  <div className="th-content">
-                    <span>Nome</span>
-                    <ArrowUpDown size={13} className="sort-icon" />
-                  </div>
-                </th>
-                <th onClick={() => handleSort('category')} className="sortable-th">
-                  <div className="th-content">
-                    <span>Categoria</span>
-                    <ArrowUpDown size={13} className="sort-icon" />
-                  </div>
-                </th>
-                <th onClick={() => handleSort('status')} className="sortable-th">
-                  <div className="th-content">
-                    <span>Estado</span>
-                    <ArrowUpDown size={13} className="sort-icon" />
-                  </div>
-                </th>
-                <th onClick={() => handleSort('person')} className="sortable-th">
-                  <div className="th-content">
-                    <span>Responsável</span>
-                    <ArrowUpDown size={13} className="sort-icon" />
-                  </div>
-                </th>
-                <th>Localização</th>
-                <th className="th-actions">Ações</th>
+                {[
+                  ['id', 'assets.colId'],
+                  ['name', 'assets.colName'],
+                  ['category', 'assets.colCategory'],
+                  ['status', 'assets.colStatus'],
+                  ['person', 'assets.colPerson']
+                ].map(([field, labelKey]) => (
+                  <th key={field} onClick={() => handleSort(field)} className="sortable-th">
+                    <div className="th-content">
+                      <span>{t(labelKey)}</span>
+                      <ArrowUpDown size={13} className="sort-icon" />
+                    </div>
+                  </th>
+                ))}
+                <th>{t('assets.colLocation')}</th>
+                <th className="th-actions">{t('assets.colActions')}</th>
               </tr>
             </thead>
             <tbody>
               {paginatedAssets.length > 0 ? (
                 paginatedAssets.map((asset) => {
-                  const Icon = categoryIcons[asset.category] || Laptop;
+                  const Icon = CATEGORY_ICONS[asset.category] || Laptop;
                   return (
-                    <tr
-                      key={asset.id}
-                      className="table-row-hover"
-                      onClick={() => onSelectAsset(asset)}
-                    >
+                    <tr key={asset.id} className="table-row-hover" onClick={() => onSelectAsset(asset)}>
                       <td className="td-patrimonio">
                         <span className="asset-id-code">{asset.id}</span>
                       </td>
@@ -322,7 +341,7 @@ export function AssetListView({
                           <span className="asset-item-name">{asset.name}</span>
                         </div>
                       </td>
-                      <td className="td-category">{asset.category}</td>
+                      <td className="td-category">{categoryLabel(t, asset.category)}</td>
                       <td className="td-status">
                         <StatusBadge value={asset.status} size="sm" />
                       </td>
@@ -331,19 +350,21 @@ export function AssetListView({
                           {asset.person || '—'}
                         </span>
                       </td>
-                      <td className="td-location">{asset.location || 'Estoque'}</td>
+                      <td className="td-location">{asset.location || '—'}</td>
                       <td className="td-actions" onClick={(e) => e.stopPropagation()}>
                         <div className="action-buttons-group">
                           <button
                             className="btn-action-icon"
-                            title="Editar ativo"
+                            title={t('assets.edit')}
+                            aria-label={t('assets.edit')}
                             onClick={() => onSelectAsset(asset)}
                           >
                             <Edit size={16} />
                           </button>
                           <button
                             className="btn-action-icon"
-                            title="Visualizar detalhes"
+                            title={t('assets.details')}
+                            aria-label={t('assets.details')}
                             onClick={() => onSelectAsset(asset)}
                           >
                             <ExternalLink size={16} />
@@ -351,9 +372,14 @@ export function AssetListView({
                           {onDeleteAsset && (
                             <button
                               className="btn-action-icon btn-action-danger"
-                              title="Excluir ativo"
+                              title={t('assets.delete')}
+                              aria-label={t('assets.delete')}
                               onClick={() => {
-                                if (window.confirm(`Deseja realmente remover o ativo ${asset.name} (${asset.id})?`)) {
+                                if (
+                                  window.confirm(
+                                    t('assets.deleteConfirm', { name: asset.name, id: asset.id })
+                                  )
+                                ) {
                                   onDeleteAsset(asset.id);
                                 }
                               }}
@@ -369,16 +395,16 @@ export function AssetListView({
               ) : (
                 <tr>
                   <td colSpan={7} className="td-empty-state">
-                    <p>Nenhum ativo encontrado para os filtros selecionados.</p>
+                    <p>{t('assets.empty')}</p>
                     <button
                       className="btn-reset-filters"
                       onClick={() => {
-                        setSelectedCategory('Todos');
+                        handleCategorySelect('Todos');
                         setSelectedStatus('Todos');
                         setSearchTerm('');
                       }}
                     >
-                      Limpar filtros de busca
+                      {t('assets.resetFilters')}
                     </button>
                   </td>
                 </tr>
@@ -387,67 +413,60 @@ export function AssetListView({
           </table>
         </div>
 
-        {/* Pagination Bar (Matching 04-lista-de-ativos.png) */}
+        {/* Dynamic Pagination Bar */}
         <div className="table-pagination-footer">
           <div className="pagination-info">
             <span>
-              Mostrando <b>{Math.min(filteredAssets.length, (currentPage - 1) * itemsPerPage + 1)}</b> a{' '}
-              <b>{Math.min(filteredAssets.length, currentPage * itemsPerPage)}</b> de{' '}
-              <b>{filteredAssets.length}</b> ativos
+              {t('assets.showing', {
+                start: filteredAssets.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1,
+                end: Math.min(filteredAssets.length, safePage * itemsPerPage),
+                total: formatNumber(filteredAssets.length, language),
+                count: filteredAssets.length
+              })}
             </span>
           </div>
 
           <div className="pagination-controls">
             <button
-              className={`page-number-btn ${currentPage === 1 ? 'active' : ''}`}
-              onClick={() => setCurrentPage(1)}
+              className="page-number-btn page-prev-btn"
+              disabled={safePage <= 1}
+              onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+              aria-label={t('assets.prevPage')}
             >
-              1
+              &lt;
             </button>
-            {totalPages >= 2 && (
-              <button
-                className={`page-number-btn ${currentPage === 2 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(2)}
-              >
-                2
-              </button>
+            {(() => {
+              if (totalPages <= 7) {
+                return Array.from({ length: totalPages }, (_, i) => i + 1);
+              }
+              const pages = [1];
+              if (safePage > 3) pages.push('...');
+              const start = Math.max(2, safePage - 1);
+              const end = Math.min(totalPages - 1, safePage + 1);
+              for (let i = start; i <= end; i++) pages.push(i);
+              if (safePage < totalPages - 2) pages.push('...');
+              pages.push(totalPages);
+              return pages;
+            })().map((p, idx) =>
+              p === '...' ? (
+                <span key={`ellipsis-${idx}`} className="pagination-ellipsis">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  className={`page-number-btn ${safePage === p ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(p)}
+                >
+                  {p}
+                </button>
+              )
             )}
-            {totalPages >= 3 && (
-              <button
-                className={`page-number-btn ${currentPage === 3 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(3)}
-              >
-                3
-              </button>
-            )}
-            {totalPages >= 4 && (
-              <button
-                className={`page-number-btn ${currentPage === 4 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(4)}
-              >
-                4
-              </button>
-            )}
-            {totalPages >= 5 && (
-              <button
-                className={`page-number-btn ${currentPage === 5 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(5)}
-              >
-                5
-              </button>
-            )}
-            <span className="pagination-ellipsis">...</span>
-            <button
-              className={`page-number-btn ${currentPage === 16 ? 'active' : ''}`}
-              onClick={() => setCurrentPage(Math.min(16, totalPages))}
-            >
-              16
-            </button>
             <button
               className="page-number-btn page-next-btn"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              aria-label="Próxima página"
+              disabled={safePage >= totalPages}
+              onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+              aria-label={t('assets.nextPage')}
             >
               &gt;
             </button>
@@ -457,4 +476,3 @@ export function AssetListView({
     </div>
   );
 }
-

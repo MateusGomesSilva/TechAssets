@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useI18n } from '../../i18n';
 
 export function Modal({
   isOpen,
@@ -10,6 +11,7 @@ export function Modal({
   footer,
   maxWidth = '540px'
 }) {
+  const { t } = useI18n();
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -47,7 +49,7 @@ export function Modal({
           <button
             className="modal-close-btn"
             onClick={onClose}
-            aria-label="Fechar modal"
+            aria-label={t('common.close')}
           >
             <X size={18} />
           </button>

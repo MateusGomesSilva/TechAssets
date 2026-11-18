@@ -8,12 +8,19 @@ import {
   User,
   Settings,
   LogOut,
-  Layers,
   AlertTriangle,
   Clock3,
   ShieldCheck,
-  Check
+  CheckCircle2
 } from 'lucide-react';
+import { useI18n, profileTypeLabel } from '../../i18n';
+
+function AlertIcon({ tone, size = 15 }) {
+  if (tone === 'danger') return <AlertTriangle size={size} />;
+  if (tone === 'warning') return <ShieldCheck size={size} />;
+  if (tone === 'info') return <Clock3 size={size} />;
+  return <CheckCircle2 size={size} />;
+}
 
 export function Topbar({
   onOpenMobile,
@@ -23,23 +30,15 @@ export function Topbar({
   onNavigate,
   user,
   alerts = [],
-  onLogout,
-  currentPage
+  onLogout
 }) {
+  const { t } = useI18n();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showScreenPicker, setShowScreenPicker] = useState(false);
 
-  const screens = [
-    { id: 'landing', label: '1. Início / Banner Hero (01)' },
-    { id: 'login', label: '2. Login / Autenticação (02)' },
-    { id: 'dashboard', label: '3. Dashboard Geral (03)' },
-    { id: 'assets', label: '4. Lista de Ativos (04)' },
-    { id: 'asset-detail', label: '5. Detalhes do Ativo (05)' },
-    { id: 'maintenances', label: '6. Manutenções (07)' },
-    { id: 'new-asset', label: '7. Novo Ativo / Cadastro (08)' },
-    { id: 'profile', label: '8. Perfil do Usuário (09)' }
-  ];
+  // Only real pending situations are listed / counted
+  const activeAlerts = alerts.filter((al) => al.count > 0);
+  const pendingTotal = activeAlerts.reduce((sum, al) => sum + al.count, 0);
 
   return (
     <header className="app-topbar">
@@ -47,7 +46,7 @@ export function Topbar({
         <button
           className="mobile-menu-trigger"
           onClick={onOpenMobile}
-          aria-label="Abrir menu de navegação"
+          aria-label={t('topbar.openMenu')}
         >
           <Menu size={22} />
         </button>
@@ -57,13 +56,13 @@ export function Topbar({
           className="topbar-search-wrapper"
           onClick={onOpenCommandPalette}
           role="search"
-          title="Clique ou pressione Ctrl+K para busca global"
+          title={t('topbar.searchHint')}
         >
           <Search size={17} className="search-icon" />
           <input
             type="text"
             className="topbar-search-input"
-            placeholder="Buscar ativo, patrimônio, responsável..."
+            placeholder={t('topbar.search')}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
             onFocus={(e) => {
@@ -73,58 +72,17 @@ export function Topbar({
               }
             }}
           />
-          <kbd className="topbar-kbd-shortcut">Ctrl K</kbd>
+          <kbd className="topbar-kbd-shortcut">{t('topbar.shortcut')}</kbd>
         </div>
       </div>
 
       <div className="topbar-right">
-        {/* Quick Screen Switcher Demo pill */}
-        <div className="screen-picker-wrapper">
-          <button
-            className="screen-picker-btn"
-            onClick={() => {
-              setShowScreenPicker(!showScreenPicker);
-              setShowNotifications(false);
-              setShowUserMenu(false);
-            }}
-            title="Navegador rápido de telas do projeto"
-          >
-            <Layers size={15} />
-            <span className="screen-picker-label">Módulos de Referência</span>
-            <ChevronDown size={14} />
-          </button>
-
-          {showScreenPicker && (
-            <div className="dropdown-panel screen-dropdown">
-              <div className="dropdown-header">
-                <b>Telas & Módulos TechAssets</b>
-                <small>Clique para alternar imediatamente:</small>
-              </div>
-              <div className="dropdown-items-list">
-                {screens.map((sc) => (
-                  <button
-                    key={sc.id}
-                    className={`dropdown-item-btn ${currentPage === sc.id ? 'active' : ''}`}
-                    onClick={() => {
-                      onNavigate(sc.id);
-                      setShowScreenPicker(false);
-                    }}
-                  >
-                    <span>{sc.label}</span>
-                    {currentPage === sc.id && <Check size={14} className="check-icon" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Help button */}
         <button
           className="topbar-icon-btn"
-          title="Central de Ajuda"
+          title={t('topbar.help')}
           onClick={() => onNavigate('support')}
-          aria-label="Central de Ajuda"
+          aria-label={t('topbar.help')}
         >
           <HelpCircle size={19} />
         </button>
@@ -133,35 +91,47 @@ export function Topbar({
         <div className="topbar-notifications-wrapper">
           <button
             className="topbar-icon-btn notification-btn"
-            title="Notificações e Alertas"
+            title={t('topbar.notificationsTitle')}
             onClick={() => {
               setShowNotifications(!showNotifications);
               setShowUserMenu(false);
-              setShowScreenPicker(false);
             }}
-            aria-label="Notificações"
+            aria-label={t('topbar.notifications')}
           >
             <Bell size={19} />
-            <span className="notification-badge-dot" />
+            {pendingTotal > 0 && <span className="notification-badge-dot" />}
           </button>
 
           {showNotifications && (
             <div className="dropdown-panel notification-dropdown">
               <div className="dropdown-header">
-                <b>Alertas e Notificações</b>
-                <span className="badge-count">{alerts.length} pendências</span>
+                <b>{t('topbar.alertsTitle')}</b>
+                <span className="badge-count">
+                  {t('topbar.pendingCount', { count: pendingTotal })}
+                </span>
               </div>
               <div className="dropdown-items-list">
-                {alerts.map((al) => (
-                  <div key={al.id} className="notification-item">
+                {activeAlerts.length === 0 && (
+                  <div className="notification-item notification-empty">
+                    <div className="notif-icon notif-neutral">
+                      <CheckCircle2 size={15} />
+                    </div>
+                    <div className="notif-content">
+                      <p className="notif-title">{t('topbar.noNotifications')}</p>
+                    </div>
+                  </div>
+                )}
+                {activeAlerts.map((al) => (
+                  <div
+                    key={al.id}
+                    className="notification-item"
+                    onClick={() => {
+                      onNavigate(al.route || 'maintenances');
+                      setShowNotifications(false);
+                    }}
+                  >
                     <div className={`notif-icon notif-${al.tone}`}>
-                      {al.tone === 'danger' ? (
-                        <AlertTriangle size={15} />
-                      ) : al.tone === 'warning' ? (
-                        <ShieldCheck size={15} />
-                      ) : (
-                        <Clock3 size={15} />
-                      )}
+                      <AlertIcon tone={al.tone} />
                     </div>
                     <div className="notif-content">
                       <p className="notif-title">{al.text}</p>
@@ -178,7 +148,7 @@ export function Topbar({
                     setShowNotifications(false);
                   }}
                 >
-                  Ver todas as manutenções
+                  {t('topbar.viewAllMaintenances')}
                 </button>
               </div>
             </div>
@@ -192,14 +162,15 @@ export function Topbar({
             onClick={() => {
               setShowUserMenu(!showUserMenu);
               setShowNotifications(false);
-              setShowScreenPicker(false);
             }}
-            aria-label="Menu do usuário"
+            aria-label={t('topbar.userMenu')}
           >
-            <div className="topbar-avatar">{user?.avatarText || 'JS'}</div>
+            <div className="topbar-avatar">{user?.avatarText}</div>
             <div className="topbar-user-meta">
-              <span className="topbar-user-name">{user?.name || 'João da Silva'}</span>
-              <span className="topbar-user-role">{user?.profileType || 'Administrador'}</span>
+              <span className="topbar-user-name">{user?.name}</span>
+              <span className="topbar-user-role">
+                {profileTypeLabel(t, user?.profileType) || t('nav.admin')}
+              </span>
             </div>
             <ChevronDown size={15} className="topbar-chevron" />
           </button>
@@ -219,7 +190,7 @@ export function Topbar({
                 }}
               >
                 <User size={16} />
-                <span>Meu Perfil</span>
+                <span>{t('topbar.profile')}</span>
               </button>
               <button
                 className="dropdown-menu-item"
@@ -229,7 +200,7 @@ export function Topbar({
                 }}
               >
                 <Settings size={16} />
-                <span>Configurações</span>
+                <span>{t('topbar.settings')}</span>
               </button>
               <div className="dropdown-divider" />
               <button
@@ -240,7 +211,7 @@ export function Topbar({
                 }}
               >
                 <LogOut size={16} />
-                <span>Sair da conta</span>
+                <span>{t('topbar.logout')}</span>
               </button>
             </div>
           )}

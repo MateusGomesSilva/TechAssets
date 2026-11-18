@@ -14,7 +14,26 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
 
-    <title>TechAssets | Gestão Inteligente de Ativos de TI</title>
+    <title>TECHASSETS | Gestão Inteligente de Ativos de TI</title>
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem('techassets:session');
+          var acc = s ? (JSON.parse(s) || {}).accountId : null;
+          var raw = acc ? localStorage.getItem('techassets:prefs:user:' + acc) : null;
+          if (!raw) raw = localStorage.getItem('techassets:prefs:device');
+          var prefs = raw ? JSON.parse(raw) : {};
+          var choice = prefs.theme || localStorage.getItem('techassets_theme') || 'light';
+          var resolved = choice === 'system'
+            ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : (choice === 'dark' ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', resolved);
+          document.documentElement.setAttribute('data-theme-choice', choice);
+          document.documentElement.style.colorScheme = resolved;
+          if (prefs.language) document.documentElement.lang = prefs.language;
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -12,11 +12,17 @@ import {
   Check
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { useI18n, categoryLabel, statusLabel, formatDate } from '../i18n';
 
-export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
+export function NewAssetView({ assetIds = [], onAddAsset, onBack, onNavigate, onNotify }) {
+  const { t, language } = useI18n();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
-    id: `NB-000${Math.floor(Math.random() * 90) + 10}`,
+    id: (() => {
+      let n = Math.floor(Math.random() * 900) + 100;
+      while (assetIds.includes(`NB-0${n}`)) n += 1;
+      return `NB-0${n}`;
+    })(),
     category: 'Notebook',
     model: 'Dell Inspiron 15',
     name: 'Dell Inspiron 15',
@@ -42,17 +48,18 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
 
   const validateStep1 = () => {
     const errs = {};
-    if (!formData.id.trim()) errs.id = 'Patrimônio é obrigatório';
-    if (!formData.model.trim()) errs.model = 'Modelo é obrigatório';
-    if (!formData.serial.trim()) errs.serial = 'Número de série é obrigatório';
-    if (!formData.date) errs.date = 'Data de aquisição é obrigatória';
+    if (!formData.id.trim()) errs.id = t('newAsset.errId');
+    else if (assetIds.some((existing) => existing.toLowerCase() === formData.id.trim().toLowerCase())) errs.id = t('newAsset.errIdDuplicate');
+    if (!formData.model.trim()) errs.model = t('newAsset.errModel');
+    if (!formData.serial.trim()) errs.serial = t('newAsset.errSerial');
+    if (!formData.date) errs.date = t('newAsset.errDate');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const validateStep2 = () => {
     const errs = {};
-    if (!formData.location.trim()) errs.location = 'Localização é obrigatória';
+    if (!formData.location.trim()) errs.location = t('newAsset.errLocation');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -73,6 +80,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
     e.preventDefault();
     const finalAsset = {
       ...formData,
+      id: formData.id.trim(),
       name: formData.name || formData.model,
       date: formData.date.includes('-')
         ? formData.date.split('-').reverse().join('/')
@@ -83,7 +91,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
     };
 
     onAddAsset(finalAsset);
-    if (onNotify) onNotify(`Ativo ${finalAsset.name} (${finalAsset.id}) cadastrado com sucesso!`);
+    if (onNotify) onNotify(t('newAsset.success', { name: finalAsset.name, id: finalAsset.id }));
     onNavigate('assets');
   };
 
@@ -95,9 +103,9 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
           <ArrowLeft size={16} />
         </button>
         <div className="breadcrumb-path">
-          <span className="breadcrumb-segment" onClick={() => onNavigate('assets')}>Ativos</span>
+          <span className="breadcrumb-segment" onClick={() => onNavigate('assets')}>{t('nav.allAssets')}</span>
           <ChevronRight size={14} className="breadcrumb-sep" />
-          <span className="breadcrumb-current">Novo ativo</span>
+          <span className="breadcrumb-current">{t('assets.newAsset')}</span>
         </div>
       </div>
 
@@ -112,7 +120,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
             <span className="step-circle">
               {currentStep > 1 ? <Check size={14} /> : '1'}
             </span>
-            <span className="step-label">Informações básicas</span>
+            <span className="step-label">{t('newAsset.step1')}</span>
           </div>
 
           <div className="wizard-step-line" />
@@ -124,14 +132,14 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
             <span className="step-circle">
               {currentStep > 2 ? <Check size={14} /> : '2'}
             </span>
-            <span className="step-label">Responsável e localização</span>
+            <span className="step-label">{t('newAsset.step2')}</span>
           </div>
 
           <div className="wizard-step-line" />
 
           <div className={`wizard-step-node ${currentStep === 3 ? 'active' : ''}`}>
             <span className="step-circle">3</span>
-            <span className="step-label">Revisão</span>
+            <span className="step-label">{t('newAsset.step3')}</span>
           </div>
         </div>
 
@@ -142,7 +150,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
               {/* Left Column */}
               <div className="form-col">
                 <div className="form-group">
-                  <label htmlFor="asset-id">Patrimônio *</label>
+                  <label htmlFor="asset-id">{t('newAsset.id')}</label>
                   <input
                     id="asset-id"
                     type="text"
@@ -156,23 +164,20 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="asset-category">Categoria *</label>
+                  <label htmlFor="asset-category">{t('newAsset.category')}</label>
                   <select
                     id="asset-category"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   >
-                    <option value="Notebook">Notebook</option>
-                    <option value="Celular">Celular</option>
-                    <option value="Tablet">Tablet</option>
-                    <option value="Desktop">Desktop</option>
-                    <option value="Monitor">Monitor</option>
-                    <option value="Acessório">Acessório</option>
+                    {['Notebook', 'Celular', 'Tablet', 'Desktop', 'Monitor', 'Acessório'].map((c) => (
+                      <option key={c} value={c}>{categoryLabel(t, c)}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="asset-model">Modelo *</label>
+                  <label htmlFor="asset-model">{t('newAsset.model')}</label>
                   <input
                     id="asset-model"
                     type="text"
@@ -192,7 +197,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="asset-serial">Número de série *</label>
+                  <label htmlFor="asset-serial">{t('newAsset.serial')}</label>
                   <input
                     id="asset-serial"
                     type="text"
@@ -209,21 +214,20 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
               {/* Right Column */}
               <div className="form-col">
                 <div className="form-group">
-                  <label htmlFor="asset-status">Estado *</label>
+                  <label htmlFor="asset-status">{t('newAsset.status')}</label>
                   <select
                     id="asset-status"
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   >
-                    <option value="Disponível">Disponível</option>
-                    <option value="Em uso">Em uso</option>
-                    <option value="Em manutenção">Em manutenção</option>
-                    <option value="Descartado">Descartado</option>
+                    {['Disponível', 'Em uso', 'Em manutenção', 'Descartado'].map((s) => (
+                      <option key={s} value={s}>{statusLabel(t, s)}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="asset-date">Data de aquisição *</label>
+                  <label htmlFor="asset-date">{t('newAsset.acquisitionDate')}</label>
                   <div className="input-calendar-wrapper">
                     <input
                       id="asset-date"
@@ -238,7 +242,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="asset-warranty">Garantia até</label>
+                  <label htmlFor="asset-warranty">{t('newAsset.warrantyUntil')}</label>
                   <div className="input-calendar-wrapper">
                     <input
                       id="asset-warranty"
@@ -251,11 +255,11 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="asset-notes">Observações</label>
+                  <label htmlFor="asset-notes">{t('newAsset.notes')}</label>
                   <input
                     id="asset-notes"
                     type="text"
-                    placeholder="Digite uma observação (opcional)"
+                    placeholder={t('newAsset.notesPlaceholder')}
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   />
@@ -271,9 +275,9 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
             <div className="form-grid-2col">
               <div className="form-col">
                 <div className="form-group">
-                  <label>Responsável / Colaborador</label>
+                  <label>{t('newAsset.responsible')}</label>
                   <input
-                    placeholder="Ex.: João da Silva (ou deixe vazio para Disponível)"
+                    placeholder={t('newAsset.responsiblePlaceholder')}
                     value={formData.person === '—' ? '' : formData.person}
                     onChange={(e) =>
                       setFormData({
@@ -286,24 +290,21 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
                 </div>
 
                 <div className="form-group">
-                  <label>Departamento</label>
+                  <label>{t('newAsset.department')}</label>
                   <select
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   >
-                    <option value="Estoque Central TI">Estoque Central TI</option>
-                    <option value="Tecnologia da Informação">Tecnologia da Informação</option>
-                    <option value="Design de Produto">Design de Produto</option>
-                    <option value="Marketing & Vendas">Marketing & Vendas</option>
-                    <option value="Financeiro / Controladoria">Financeiro / Controladoria</option>
-                    <option value="Recursos Humanos">Recursos Humanos</option>
+                    {[['Estoque Central TI', 'dept.stock'], ['Tecnologia da Informação', 'dept.it'], ['Design de Produto', 'dept.design'], ['Marketing & Vendas', 'dept.marketing'], ['Financeiro / Controladoria', 'dept.finance'], ['Recursos Humanos', 'dept.hr']].map(([value, key]) => (
+                      <option key={value} value={value}>{t(key)}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label>Localização Física *</label>
+                  <label>{t('newAsset.location')}</label>
                   <input
-                    placeholder="Ex.: Estoque TI, Sede SP - Andar 4, Home Office"
+                    placeholder={t('newAsset.locationPlaceholder')}
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     required
@@ -314,27 +315,27 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
 
               <div className="form-col">
                 <div className="form-group">
-                  <label>Fornecedor / Loja</label>
+                  <label>{t('newAsset.supplier')}</label>
                   <input
-                    placeholder="Ex.: Dell Technologies, Apple Brasil, Kabum"
+                    placeholder={t('newAsset.supplierPlaceholder')}
                     value={formData.supplier}
                     onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Valor de Aquisição (R$)</label>
+                  <label>{t('newAsset.cost')}</label>
                   <input
-                    placeholder="Ex.: R$ 4.890,00"
+                    placeholder={t('newAsset.costPlaceholder')}
                     value={formData.cost}
                     onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Processador / Hardware</label>
+                  <label>{t('newAsset.hardware')}</label>
                   <input
-                    placeholder="Ex.: Intel Core i7, Apple M2, 16GB RAM"
+                    placeholder={t('newAsset.hardwarePlaceholder')}
                     value={formData.specs.processor}
                     onChange={(e) =>
                       setFormData({
@@ -356,49 +357,49 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
               <div className="review-header">
                 <div>
                   <h3>{formData.model}</h3>
-                  <small className="font-mono">Patrimônio: {formData.id}</small>
+                  <small className="font-mono">{t('assets.colId')}: {formData.id}</small>
                 </div>
                 <StatusBadge value={formData.status} />
               </div>
 
               <div className="review-grid">
                 <div className="review-item">
-                  <span>Categoria:</span>
-                  <b>{formData.category}</b>
+                  <span>{t('assets.colCategory')}:</span>
+                  <b>{categoryLabel(t, formData.category)}</b>
                 </div>
                 <div className="review-item">
-                  <span>Número de Série:</span>
+                  <span>{t('detail.serial')}:</span>
                   <b className="font-mono">{formData.serial}</b>
                 </div>
                 <div className="review-item">
-                  <span>Responsável:</span>
+                  <span>{t('assets.colPerson')}:</span>
                   <b>{formData.person || '—'}</b>
                 </div>
                 <div className="review-item">
-                  <span>Localização:</span>
+                  <span>{t('assets.colLocation')}:</span>
                   <b>{formData.location}</b>
                 </div>
                 <div className="review-item">
-                  <span>Data de Compra:</span>
-                  <b>{formData.date}</b>
+                  <span>{t('detail.acquisitionDate')}:</span>
+                  <b>{formatDate(formData.date, language)}</b>
                 </div>
                 <div className="review-item">
-                  <span>Garantia até:</span>
-                  <b>{formData.warranty || 'Não informada'}</b>
+                  <span>{t('detail.warrantyUntil')}:</span>
+                  <b>{formData.warranty ? formatDate(formData.warranty, language) : t('newAsset.warrantyNone')}</b>
                 </div>
                 <div className="review-item">
-                  <span>Fornecedor:</span>
+                  <span>{t('detail.supplier')}:</span>
                   <b>{formData.supplier}</b>
                 </div>
                 <div className="review-item">
-                  <span>Custo:</span>
+                  <span>{t('maint.colCost')}:</span>
                   <b>{formData.cost}</b>
                 </div>
               </div>
 
               {formData.notes && (
                 <div className="review-notes">
-                  <span>Observações:</span>
+                  <span>{t('detail.notes')}:</span>
                   <p>{formData.notes}</p>
                 </div>
               )}
@@ -414,7 +415,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
               className="btn btn-secondary"
               onClick={() => setCurrentStep((prev) => prev - 1)}
             >
-              Voltar
+              {t('common.back')}
             </button>
           )}
 
@@ -423,7 +424,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
             className="btn btn-secondary"
             onClick={onBack}
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
 
           {currentStep < 3 ? (
@@ -432,7 +433,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
               className="btn btn-primary"
               onClick={handleNext}
             >
-              Próximo
+              {t('common.next')}
             </button>
           ) : (
             <button
@@ -441,7 +442,7 @@ export function NewAssetView({ onAddAsset, onBack, onNavigate, onNotify }) {
               onClick={handleSubmit}
             >
               <CheckCircle2 size={16} />
-              <span>Cadastrar ativo</span>
+              <span>{t('newAsset.finish')}</span>
             </button>
           )}
         </div>

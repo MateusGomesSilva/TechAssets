@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
-// Mock Data
-import {
-  INITIAL_ASSETS,
-  INITIAL_MAINTENANCES,
-  INITIAL_MOVEMENTS,
-  INITIAL_ALERTS,
-  INITIAL_USER
-} from './data/mockData';
+// Mock Data (in-memory data set; every indicator is derived from it)
+import { INITIAL_ASSETS, INITIAL_MAINTENANCES, INITIAL_MOVEMENTS } from './data/mockData';
+
+// Preferences (theme + language) & i18n
+import { PreferencesProvider, usePreferences } from './preferences/PreferencesProvider';
+import { useI18n } from './i18n';
+
+// Utils
+import { calculateAlerts, hasNoOwner, isPendingMaintenance } from './utils/alerts';
+import { buildUser, endSession, getSession, startSession } from './utils/auth';
+import { storage } from './utils/storage';
+import { toStorageDate } from './utils/dates';
 
 // Layout & Common
 import { AppLayout } from './components/layout/AppLayout';
@@ -42,49 +46,148 @@ const ROUTE_MAP = {
   '#/manutencoes': 'maintenances',
   '#/novo-ativo': 'new-asset',
   '#/perfil': 'profile',
+  '#/configuracoes': 'settings',
   '#/movimentacoes': 'movements',
   '#/relatorios': 'reports',
   '#/suporte': 'support'
 };
 
 const PAGE_TO_HASH = {
-  'landing': '#/',
-  'login': '#/login',
-  'dashboard': '#/dashboard',
-  'assets': '#/ativos',
+  landing: '#/',
+  login: '#/login',
+  dashboard: '#/dashboard',
+  assets: '#/ativos',
   'asset-detail': '#/detalhes',
-  'maintenances': '#/manutencoes',
+  maintenances: '#/manutencoes',
   'new-asset': '#/novo-ativo',
-  'profile': '#/perfil',
-  'movements': '#/movimentacoes',
-  'reports': '#/relatorios',
-  'support': '#/suporte',
-  'settings': '#/perfil',
-  'inventory': '#/ativos'
+  profile: '#/perfil',
+  movements: '#/movimentacoes',
+  reports: '#/relatorios',
+  support: '#/suporte',
+  settings: '#/configuracoes',
+  inventory: '#/ativos'
 };
 
+// Pages that do not require an authenticated session
+const PUBLIC_PAGES = new Set(['landing', 'login']);
+
+function parseLocationHash() {
+  const raw = window.location.hash || '';
+  const detail = raw.match(/^#\/detalhes\/(.+)$/i);
+  if (detail) {
+    let assetId = detail[1];
+    try {
+      assetId = decodeURIComponent(assetId);
+    } catch {
+      /* keep raw */
+    }
+    return { page: 'asset-detail', assetId };
+  }
+  return { page: ROUTE_MAP[raw.toLowerCase()] || 'landing', assetId: null };
+}
+
+function hashFor(page, assetId) {
+  if (page === 'asset-detail' && assetId) return `#/detalhes/${encodeURIComponent(assetId)}`;
+  return PAGE_TO_HASH[page] || '#/';
+}
+
+const DATA_KEYS = {
+  assets: 'techassets:data:assets:v1',
+  maintenances: 'techassets:data:maintenances:v1',
+  movements: 'techassets:data:movements:v1',
+  tickets: 'techassets:data:tickets:v1',
+  userPrefix: 'techassets:user:profile:'
+};
+
+function readStoredList(key, fallback) {
+  const raw = storage.get(key);
+  if (raw === null) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function loadUserProfile(accountId) {
+  const base = buildUser(accountId);
+  if (!accountId) return base;
+  const raw = storage.get(DATA_KEYS.userPrefix + accountId);
+  if (!raw) return base;
+  try {
+    return { ...base, ...JSON.parse(raw) };
+  } catch {
+    return base;
+  }
+}
+
 function App() {
-  // Determine initial page from hash or default to landing
-  const getInitialPage = () => {
-    const hash = window.location.hash.toLowerCase();
-    return ROUTE_MAP[hash] || 'landing';
-  };
+  const { t } = useI18n();
+  const { activateAccount, deactivateAccount } = usePreferences();
 
-  const [currentPage, setCurrentPage] = useState(getInitialPage);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  // Authentication session (persisted) → decides who sees the internal pages
+  const [session, setSession] = useState(getSession);
+  const isAuthenticated = Boolean(session);
 
-  // Core Data States
-  const [assets, setAssets] = useState(INITIAL_ASSETS);
-  const [selectedAsset, setSelectedAsset] = useState(INITIAL_ASSETS[0]);
-  const [maintenances, setMaintenances] = useState(INITIAL_MAINTENANCES);
-  const [movements, setMovements] = useState(INITIAL_MOVEMENTS);
-  const [alerts, setAlerts] = useState(INITIAL_ALERTS);
-  const [user, setUser] = useState(INITIAL_USER);
+  const initialLocation = useMemo(parseLocationHash, []);
+  const [currentPage, setCurrentPage] = useState(initialLocation.page);
+  const [selectedAssetId, setSelectedAssetId] = useState(initialLocation.assetId);
 
-  // Global UI States
+  // Core data (persisted in localStorage so changes survive reloads)
+  const [assets, setAssets] = useState(() => readStoredList(DATA_KEYS.assets, INITIAL_ASSETS));
+  const [maintenances, setMaintenances] = useState(() =>
+    readStoredList(DATA_KEYS.maintenances, INITIAL_MAINTENANCES)
+  );
+  const [movements, setMovements] = useState(() =>
+    readStoredList(DATA_KEYS.movements, INITIAL_MOVEMENTS)
+  );
+  const [tickets, setTickets] = useState(() => readStoredList(DATA_KEYS.tickets, []));
+  const [user, setUser] = useState(() => loadUserProfile(session?.accountId));
+
+  useEffect(() => {
+    storage.set(DATA_KEYS.assets, JSON.stringify(assets));
+  }, [assets]);
+
+  useEffect(() => {
+    storage.set(DATA_KEYS.maintenances, JSON.stringify(maintenances));
+  }, [maintenances]);
+
+  useEffect(() => {
+    storage.set(DATA_KEYS.movements, JSON.stringify(movements));
+  }, [movements]);
+
+  useEffect(() => {
+    storage.set(DATA_KEYS.tickets, JSON.stringify(tickets));
+  }, [tickets]);
+
+  const handleUpdateUser = useCallback(
+    (updatedUser) => {
+      setUser(updatedUser);
+      if (session?.accountId) {
+        storage.set(DATA_KEYS.userPrefix + session.accountId, JSON.stringify(updatedUser));
+      }
+    },
+    [session]
+  );
+
+  // Global UI states
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const selectedAsset = useMemo(
+    () => assets.find((a) => a.id === selectedAssetId) || null,
+    [assets, selectedAssetId]
+  );
+
+  // Alerts & pending counters are derived from the real records on every change
+  // (asset created / edited / transferred / removed, maintenance created...).
+  const alerts = useMemo(() => calculateAlerts(assets, maintenances, t), [assets, maintenances, t]);
+  const pendingMaintenanceCount = useMemo(() => {
+    const ids = new Set(assets.map((a) => a.id));
+    return maintenances.filter((m) => isPendingMaintenance(m) && ids.has(m.assetId)).length;
+  }, [assets, maintenances]);
 
   // Toast Notification Trigger
   const notify = useCallback((message, type = 'success') => {
@@ -103,10 +206,11 @@ function App() {
   // Synchronize hash changes (browser back/forward buttons)
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.toLowerCase();
-      const matchedPage = ROUTE_MAP[hash];
-      if (matchedPage) {
-        setCurrentPage(matchedPage);
+      const raw = window.location.hash.toLowerCase();
+      const loc = parseLocationHash();
+      if (ROUTE_MAP[raw] || loc.assetId) {
+        setCurrentPage(loc.page);
+        if (loc.assetId) setSelectedAssetId(loc.assetId);
       }
     };
     window.addEventListener('hashchange', handleHashChange);
@@ -114,159 +218,229 @@ function App() {
   }, []);
 
   // Navigation Handler
-  const navigate = (pageId, options = {}) => {
+  const navigate = useCallback((pageId, options = {}) => {
     if (options.category) {
       setSelectedCategoryFilter(options.category);
-    } else if (pageId !== 'assets') {
+    } else if (options.clearCategory || pageId !== 'assets') {
       setSelectedCategoryFilter(null);
     }
 
+    const assetId = options.assetId !== undefined ? options.assetId : undefined;
+    if (assetId) setSelectedAssetId(assetId);
+
     setCurrentPage(pageId);
-    const newHash = PAGE_TO_HASH[pageId] || '#/';
+    const newHash = hashFor(pageId, assetId || (pageId === 'asset-detail' ? selectedAssetId : null));
     if (window.location.hash !== newHash) {
       window.location.hash = newHash;
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [selectedAssetId]);
 
-  // Asset Actions
+  // Access control: internal pages require a session; the login page is skipped when already signed in
+  const effectivePage = isAuthenticated || PUBLIC_PAGES.has(currentPage) ? currentPage : 'login';
+  useEffect(() => {
+    if (!isAuthenticated && !PUBLIC_PAGES.has(currentPage)) {
+      setCurrentPage('login');
+      window.location.hash = '#/login';
+    } else if (isAuthenticated && currentPage === 'login') {
+      setCurrentPage('dashboard');
+      window.location.hash = '#/dashboard';
+    }
+  }, [isAuthenticated, currentPage]);
+
+  // -------------------------------------------------------------------------
+  // Movements
+  // -------------------------------------------------------------------------
+  const addMovement = useCallback((movement) => {
+    setMovements((prev) => [
+      {
+        id: `MOV-${Date.now()}-${prev.length}`,
+        at: new Date().toISOString(),
+        ...movement
+      },
+      ...prev
+    ]);
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Asset actions
+  // -------------------------------------------------------------------------
   const handleSelectAsset = (asset) => {
-    setSelectedAsset(asset);
-    navigate('asset-detail');
+    navigate('asset-detail', { assetId: asset.id });
   };
 
   const handleAddAsset = (newAsset) => {
     setAssets((prev) => [newAsset, ...prev]);
-
-    // Create automatic entry in movements
-    const newMovement = {
-      id: `MOV-${Date.now().toString().slice(-4)}`,
+    addMovement({
       assetName: newAsset.name || newAsset.model,
       assetId: newAsset.id,
-      route: `${newAsset.supplier || 'Fornecedor'} → ${newAsset.location}`,
+      from: newAsset.supplier || { i18n: 'movements.supplier' },
+      to: newAsset.location,
       type: 'Entrada',
-      time: 'Hoje, agora',
       tagTone: 'taggreen'
-    };
-    setMovements((prev) => [newMovement, ...prev]);
+    });
   };
 
   const handleDeleteAsset = (assetId) => {
     setAssets((prev) => prev.filter((a) => a.id !== assetId));
-    notify('Ativo removido do inventário.', 'info');
+    if (selectedAssetId === assetId) setSelectedAssetId(null);
+    notify(t('assets.removedSuccess'), 'info');
   };
 
-  // Maintenance Actions
+  // Edit / transfer: updates the record and, when the holder or place changed, logs the movement
+  const handleUpdateAsset = (assetId, changes) => {
+    const old = assets.find((a) => a.id === assetId);
+    if (!old) return false;
+
+    const person = String(changes.person ?? old.person ?? '').trim() || '—';
+    const warranty =
+      changes.warranty !== undefined
+        ? changes.warranty
+          ? toStorageDate(changes.warranty) || changes.warranty
+          : ''
+        : old.warranty;
+    const next = {
+      ...old,
+      name: String(changes.name ?? old.name).trim() || old.name,
+      person,
+      location: String(changes.location ?? old.location).trim() || old.location,
+      status: changes.status || old.status,
+      warranty
+    };
+
+    setAssets((prev) => prev.map((a) => (a.id === assetId ? next : a)));
+
+    const personChanged = old.person !== next.person;
+    const locationChanged = old.location !== next.location;
+    if (personChanged || locationChanged) {
+      const holder = (a) => (hasNoOwner(a) ? a.location : a.person);
+      addMovement({
+        assetName: next.name,
+        assetId,
+        from: personChanged ? holder(old) : old.location,
+        to: personChanged ? holder(next) : next.location,
+        type: 'Transferência',
+        tagTone: 'tagblue'
+      });
+    }
+    return true;
+  };
+
+  const handleTransferAsset = (assetId, { person, location }) => {
+    const old = assets.find((a) => a.id === assetId);
+    if (!old) return false;
+    const owner = String(person || '').trim();
+    let status = old.status;
+    if (owner && status === 'Disponível') status = 'Em uso';
+    if (!owner && status === 'Em uso') status = 'Disponível';
+    return handleUpdateAsset(assetId, { person: owner, location: location || old.location, status });
+  };
+
+  // Maintenance actions
   const handleAddMaintenance = (newRecord) => {
     setMaintenances((prev) => [newRecord, ...prev]);
   };
 
-  // Category Selection from Landing or Donut
-  const handleSelectCategory = (catKey) => {
-    setSelectedCategoryFilter(catKey);
-    navigate('assets');
+  // Support ticket actions
+  const handleAddTicket = (ticketData) => {
+    const nextNumber =
+      tickets.reduce(
+        (max, item) => Math.max(max, parseInt(String(item.id).replace(/\D/g, ''), 10) || 0),
+        0
+      ) + 1;
+    const created = {
+      id: `CHM-${String(nextNumber).padStart(3, '0')}`,
+      subject: ticketData.subject.trim(),
+      category: ticketData.category,
+      priority: ticketData.priority,
+      assetId: ticketData.assetId || '',
+      assetName: ticketData.assetName || '',
+      description: ticketData.description.trim(),
+      status: 'Aberto',
+      requester: user?.name || '',
+      requesterEmail: user?.email || '',
+      createdAt: new Date().toISOString()
+    };
+    setTickets((prev) => [created, ...prev]);
+    return created;
   };
 
-  // Auth Handlers
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-    navigate('dashboard');
+  const handleUpdateTicketStatus = (ticketId, status) => {
+    setTickets((prev) => prev.map((tk) => (tk.id === ticketId ? { ...tk, status } : tk)));
+  };
+
+  const handleDeleteTicket = (ticketId) => {
+    setTickets((prev) => prev.filter((tk) => tk.id !== ticketId));
+  };
+
+  // Category selection from the dashboard / sidebar
+  const handleSelectCategory = (catKey) => {
+    setSelectedCategoryFilter(catKey);
+    navigate('assets', { category: catKey });
+  };
+
+  // -------------------------------------------------------------------------
+  // Auth handlers
+  // -------------------------------------------------------------------------
+  const handleLoginSuccess = (email) => {
+    const newSession = startSession(email || buildUser().email);
+    setSession(newSession);
+    setUser(loadUserProfile(newSession.accountId));
+    activateAccount(newSession.accountId); // loads this user's saved theme + language
+    setCurrentPage('dashboard');
+    window.location.hash = '#/dashboard';
+    window.scrollTo({ top: 0 });
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    endSession();
+    deactivateAccount();
+    setSession(null);
+    setSearchTerm('');
     navigate('login');
-    notify('Você saiu da sua conta.');
+    notify(t('toast.loggedOut'));
   };
 
-  // Render 01: Landing View (Screen 01)
-  if (currentPage === 'landing') {
+  const handleRequestAccess = () => {
+    navigate('login');
+    notify(t('landing.requestAccessInfo'), 'info');
+  };
+
+  // Render: Landing
+  if (effectivePage === 'landing') {
     return (
       <>
-        <LandingView
-          onNavigate={navigate}
-          onSelectCategory={handleSelectCategory}
-        />
+        <LandingView assets={assets} onNavigate={navigate} onRequestAccess={handleRequestAccess} />
         <Toast toast={toast} onDismiss={dismissToast} />
-
-        {/* Global floating switcher */}
-        <div className="quick-demo-switcher">
-          <div className="demo-switcher-header">
-            <span>Módulos de Referência</span>
-          </div>
-          <div className="demo-switcher-pills">
-            {[
-              { id: 'landing', label: '01. Início' },
-              { id: 'login', label: '02. Login' },
-              { id: 'dashboard', label: '03. Dashboard' },
-              { id: 'assets', label: '04. Ativos' },
-              { id: 'asset-detail', label: '05. Detalhes' },
-              { id: 'maintenances', label: '07. Manutenções' },
-              { id: 'new-asset', label: '08. Novo Ativo' },
-              { id: 'profile', label: '09. Perfil' }
-            ].map((s) => (
-              <button
-                key={s.id}
-                className={`demo-pill ${currentPage === s.id ? 'active' : ''}`}
-                onClick={() => navigate(s.id)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </>
     );
   }
 
-  // Render 02: Login View (Screen 02)
-  if (currentPage === 'login') {
+  // Render: Login
+  if (effectivePage === 'login') {
     return (
       <>
         <LoginView
           onLoginSuccess={handleLoginSuccess}
           onNavigate={navigate}
+          onRequestAccess={handleRequestAccess}
           onNotify={notify}
         />
         <Toast toast={toast} onDismiss={dismissToast} />
-
-        <div className="quick-demo-switcher">
-          <div className="demo-switcher-header">
-            <span>Módulos de Referência</span>
-          </div>
-          <div className="demo-switcher-pills">
-            {[
-              { id: 'landing', label: '01. Início' },
-              { id: 'login', label: '02. Login' },
-              { id: 'dashboard', label: '03. Dashboard' },
-              { id: 'assets', label: '04. Ativos' },
-              { id: 'asset-detail', label: '05. Detalhes' },
-              { id: 'maintenances', label: '07. Manutenções' },
-              { id: 'new-asset', label: '08. Novo Ativo' },
-              { id: 'profile', label: '09. Perfil' }
-            ].map((s) => (
-              <button
-                key={s.id}
-                className={`demo-pill ${currentPage === s.id ? 'active' : ''}`}
-                onClick={() => navigate(s.id)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </>
     );
   }
 
-  // Authenticated Workspace Layout (Screens 03, 04, 05, 07, 08, 09, etc.)
+  // Authenticated workspace
   return (
     <AppLayout
-      currentPage={currentPage}
+      currentPage={effectivePage}
+      currentCategory={selectedCategoryFilter}
       onNavigate={navigate}
       user={user}
       alerts={alerts}
       assets={assets}
+      maintenanceCount={pendingMaintenanceCount}
       onSelectAsset={handleSelectAsset}
       searchTerm={searchTerm}
       onSearchChange={setSearchTerm}
@@ -274,7 +448,7 @@ function App() {
       onDismissToast={dismissToast}
       onLogout={handleLogout}
     >
-      {currentPage === 'dashboard' && (
+      {effectivePage === 'dashboard' && (
         <DashboardView
           assets={assets}
           movements={movements}
@@ -285,83 +459,19 @@ function App() {
         />
       )}
 
-      {currentPage === 'assets' && (
+      {effectivePage === 'assets' && (
         <AssetListView
           assets={assets}
           onSelectAsset={handleSelectAsset}
           onNavigate={navigate}
           onDeleteAsset={handleDeleteAsset}
           initialCategory={selectedCategoryFilter}
+          onCategoryChange={(cat) => setSelectedCategoryFilter(cat)}
           onNotify={notify}
         />
       )}
 
-      {currentPage === 'asset-detail' && (
-        <AssetDetailView
-          asset={selectedAsset}
-          onBack={() => navigate('assets')}
-          onNavigate={navigate}
-          onNotify={notify}
-          maintenances={maintenances}
-        />
-      )}
-
-      {currentPage === 'maintenances' && (
-        <MaintenanceView
-          maintenances={maintenances}
-          onAddMaintenance={handleAddMaintenance}
-          onBack={() => navigate('assets')}
-          onNotify={notify}
-        />
-      )}
-
-      {currentPage === 'new-asset' && (
-        <NewAssetView
-          onAddAsset={handleAddAsset}
-          onBack={() => navigate('assets')}
-          onNavigate={navigate}
-          onNotify={notify}
-        />
-      )}
-
-      {currentPage === 'profile' && (
-        <UserProfileView
-          user={user}
-          onUpdateUser={setUser}
-          onNotify={notify}
-        />
-      )}
-
-      {currentPage === 'movements' && (
-        <MovementsView
-          movements={movements}
-          onBack={() => navigate('dashboard')}
-          onNotify={notify}
-        />
-      )}
-
-      {currentPage === 'reports' && (
-        <ReportsView
-          assets={assets}
-          onNotify={notify}
-        />
-      )}
-
-      {currentPage === 'support' && (
-        <SupportView
-          onNotify={notify}
-        />
-      )}
-
-      {currentPage === 'settings' && (
-        <UserProfileView
-          user={user}
-          onUpdateUser={setUser}
-          onNotify={notify}
-        />
-      )}
-
-      {currentPage === 'inventory' && (
+      {effectivePage === 'inventory' && (
         <AssetListView
           assets={assets}
           onSelectAsset={handleSelectAsset}
@@ -371,8 +481,76 @@ function App() {
           onNotify={notify}
         />
       )}
+
+      {effectivePage === 'asset-detail' && (
+        <AssetDetailView
+          asset={selectedAsset}
+          onBack={() => navigate('assets')}
+          onNavigate={navigate}
+          onNotify={notify}
+          onUpdateAsset={handleUpdateAsset}
+          maintenances={maintenances}
+          movements={movements}
+        />
+      )}
+
+      {effectivePage === 'maintenances' && (
+        <MaintenanceView
+          assets={assets}
+          maintenances={maintenances}
+          onAddMaintenance={handleAddMaintenance}
+          onBack={() => navigate('assets')}
+          onNotify={notify}
+        />
+      )}
+
+      {effectivePage === 'new-asset' && (
+        <NewAssetView
+          assetIds={assets.map((a) => a.id)}
+          onAddAsset={handleAddAsset}
+          onBack={() => navigate('assets')}
+          onNavigate={navigate}
+          onNotify={notify}
+        />
+      )}
+
+      {(effectivePage === 'profile' || effectivePage === 'settings') && (
+        <UserProfileView
+          user={user}
+          onUpdateUser={handleUpdateUser}
+          onNotify={notify}
+          mode={effectivePage}
+        />
+      )}
+
+      {effectivePage === 'movements' && (
+        <MovementsView
+          assets={assets}
+          movements={movements}
+          onTransferAsset={handleTransferAsset}
+          onNotify={notify}
+        />
+      )}
+
+      {effectivePage === 'reports' && <ReportsView assets={assets} onNotify={notify} />}
+
+      {effectivePage === 'support' && (
+        <SupportView
+          assets={assets}
+          tickets={tickets}
+          onAddTicket={handleAddTicket}
+          onUpdateTicketStatus={handleUpdateTicketStatus}
+          onDeleteTicket={handleDeleteTicket}
+          onSelectAsset={handleSelectAsset}
+          onNotify={notify}
+        />
+      )}
     </AppLayout>
   );
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+createRoot(document.getElementById('root')).render(
+  <PreferencesProvider>
+    <App />
+  </PreferencesProvider>
+);

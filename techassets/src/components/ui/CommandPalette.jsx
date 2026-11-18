@@ -15,6 +15,8 @@ import {
   Tv,
   X
 } from 'lucide-react';
+import { useI18n, statusLabel } from '../../i18n';
+import { hasNoOwner } from '../../utils/alerts';
 
 export function CommandPalette({
   isOpen,
@@ -23,6 +25,7 @@ export function CommandPalette({
   onSelectAsset,
   onNavigate
 }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
@@ -36,11 +39,11 @@ export function CommandPalette({
   }, [isOpen]);
 
   const navActions = [
-    { type: 'page', id: 'dashboard', label: 'Ir para Dashboard', icon: LayoutDashboard },
-    { type: 'page', id: 'assets', label: 'Ver Inventário Completo', icon: Package },
-    { type: 'page', id: 'new-asset', label: 'Cadastrar Novo Ativo (+)', icon: Plus },
-    { type: 'page', id: 'maintenances', label: 'Ordens de Manutenção', icon: Wrench },
-    { type: 'page', id: 'profile', label: 'Meu Perfil e Preferências', icon: User }
+    { type: 'page', id: 'dashboard', label: t('palette.goDashboard'), icon: LayoutDashboard },
+    { type: 'page', id: 'assets', label: t('palette.viewInventory'), icon: Package },
+    { type: 'page', id: 'new-asset', label: t('palette.newAsset'), icon: Plus },
+    { type: 'page', id: 'maintenances', label: t('palette.maintenanceOrders'), icon: Wrench },
+    { type: 'page', id: 'profile', label: t('palette.profilePrefs'), icon: User }
   ];
 
   const filteredAssets = assets.filter((a) => {
@@ -103,7 +106,7 @@ export function CommandPalette({
             ref={inputRef}
             type="text"
             className="command-search-input"
-            placeholder="Buscar por ativo, patrimônio, responsável ou ação... (ex.: MacBook, NB-0001, Novo Ativo)"
+            placeholder={t('palette.placeholder')}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -117,7 +120,7 @@ export function CommandPalette({
           {/* Asset Results */}
           {filteredAssets.length > 0 && (
             <div className="command-section">
-              <span className="command-section-label">ATIVOS ENCONTRADOS</span>
+              <span className="command-section-label">{t('palette.assetsFound')}</span>
               {filteredAssets.map((asset, idx) => {
                 const isSelected = selectedIndex === idx;
                 return (
@@ -135,9 +138,9 @@ export function CommandPalette({
                     </div>
                     <div className="command-item-text">
                       <strong>{asset.name}</strong>
-                      <small>{asset.id} • {asset.person || 'Disponível'} • {asset.location}</small>
+                      <small>{asset.id} • {hasNoOwner(asset) ? t('common.noOwner') : asset.person} • {asset.location}</small>
                     </div>
-                    <span className="command-item-tag">{asset.status}</span>
+                    <span className="command-item-tag">{statusLabel(t, asset.status)}</span>
                   </div>
                 );
               })}
@@ -148,7 +151,7 @@ export function CommandPalette({
           {filteredActions.length > 0 && (
             <div className="command-section">
               <span className="command-section-label">
-                {query ? 'AÇÕES E NAVEGAÇÃO' : 'ATALHOS RÁPIDOS'}
+                {query ? t('palette.actionsNav') : t('palette.shortcuts')}
               </span>
               {filteredActions.map((act, idx) => {
                 const realIndex = filteredAssets.length + idx;
@@ -179,15 +182,15 @@ export function CommandPalette({
 
           {query && totalResults.length === 0 && (
             <div className="command-empty-state">
-              <p>Nenhum resultado encontrado para "<b>{query}</b>".</p>
+              <p>{t('palette.noResults')} "<b>{query}</b>".</p>
             </div>
           )}
         </div>
 
         <div className="command-palette-footer">
-          <span>Navegar: <kbd>↑</kbd> <kbd>↓</kbd></span>
-          <span>Selecionar: <kbd>Enter</kbd></span>
-          <span>Fechar: <kbd>Esc</kbd></span>
+          <span>{t('palette.navigate')}: <kbd>↑</kbd> <kbd>↓</kbd></span>
+          <span>{t('palette.select')}: <kbd>Enter</kbd></span>
+          <span>{t('palette.close')}: <kbd>Esc</kbd></span>
         </div>
       </div>
     </div>

@@ -356,75 +356,68 @@ export const INITIAL_MAINTENANCES = [
   }
 ];
 
+// Moment helper: `daysAgo(0, '10:30')` → ISO timestamp of today at 10:30 (local time).
+// Movements keep a real timestamp; "Today/Yesterday" labels are produced when rendering (i18n).
+const at = (daysAgo, time) => {
+  const [h, m] = time.split(':').map(Number);
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  d.setHours(h, m, 0, 0);
+  return d.toISOString();
+};
+
+// `type` and `tagTone` use canonical values (translated when rendered).
+// `from` / `to` are free text (people, places) or `{ i18n: 'key' }` placeholders.
 export const INITIAL_MOVEMENTS = [
   {
     id: 'MOV-01',
     assetName: 'MacBook Pro 14”',
     assetId: 'NB-0001',
-    route: 'João da Silva → Desenvolvimento',
+    from: 'João da Silva',
+    to: 'Desenvolvimento',
     type: 'Transferência',
-    time: 'Hoje, 10:30',
+    at: at(0, '10:30'),
     tagTone: 'tagblue'
   },
   {
     id: 'MOV-02',
     assetName: 'iPhone 15 Pro',
     assetId: 'CEL-0001',
-    route: 'Ana Lima → Carlos Souza',
+    from: 'Ana Lima',
+    to: 'Carlos Souza',
     type: 'Transferência',
-    time: 'Hoje, 09:15',
+    at: at(0, '09:15'),
     tagTone: 'tagblue'
   },
   {
     id: 'MOV-03',
     assetName: 'Dell Monitor 24”',
     assetId: 'MON-0003',
-    route: 'TI → Sala de reunião 1',
+    from: 'TI',
+    to: { i18n: 'movements.meetingRoom' },
     type: 'Entrega',
-    time: 'Ontem, 16:45',
+    at: at(1, '16:45'),
     tagTone: 'taggreen'
   },
   {
     id: 'MOV-04',
     assetName: 'Teclado Logitech MX',
     assetId: 'ACC-0002',
-    route: 'Estoque → João da Silva',
+    from: { i18n: 'movements.stock' },
+    to: 'João da Silva',
     type: 'Entrega',
-    time: 'Ontem, 14:20',
+    at: at(1, '14:20'),
     tagTone: 'taggreen'
   },
   {
     id: 'MOV-05',
     assetName: 'Lenovo ThinkPad E14',
     assetId: 'NB-0003',
-    route: 'Suporte TI → Assistência Técnica',
+    from: { i18n: 'movements.itSupport' },
+    to: { i18n: 'movements.serviceCenter' },
     type: 'Manutenção',
-    time: '22/01/2024, 11:00',
+    at: new Date(2024, 0, 22, 11, 0).toISOString(),
     tagTone: 'tagorange'
-  }
-];
-
-export const INITIAL_ALERTS = [
-  {
-    id: 'ALT-01',
-    text: '12 ativos com manutenção atrasada',
-    subtext: 'Verifique o prazo de atendimento',
-    tone: 'danger',
-    count: 12
-  },
-  {
-    id: 'ALT-02',
-    text: '7 ativos sem responsável definido',
-    subtext: 'Revise as alocações pendentes',
-    tone: 'warning',
-    count: 7
-  },
-  {
-    id: 'ALT-03',
-    text: '4 ativos próximo do fim da garantia',
-    subtext: 'Vencimentos nos próximos 30 dias',
-    tone: 'info',
-    count: 4
   }
 ];
 
@@ -434,12 +427,11 @@ export const INITIAL_USER = {
   role: 'Analista de TI',
   department: 'Tecnologia da Informação',
   phone: '(35) 99999-9999',
-  profileType: 'Administrador',
-  memberSince: '12/03/2024',
-  lastAccess: '20/05/2025 às 14:30',
+  profileType: 'admin',
+  memberSince: '2024-03-12',
+  lastAccess: '2025-05-20T14:30:00',
   avatarText: 'JS'
 };
-
 export const INITIAL_PEOPLE = [
   { id: '1', name: 'João da Silva', role: 'Administrador', department: 'Desenvolvimento', initials: 'JS', assetCount: 4, email: 'joao.silva@empresa.com' },
   { id: '2', name: 'Maria Oliveira', role: 'Product Designer', department: 'Design', initials: 'MO', assetCount: 2, email: 'maria.oliveira@empresa.com' },

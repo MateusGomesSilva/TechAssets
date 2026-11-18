@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, Check } from 'lucide-react';
 import { BrandLogo } from '../components/common/BrandLogo';
+import { useI18n } from '../i18n';
 
-export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
+export function LoginView({ onLoginSuccess, onNavigate, onRequestAccess, onNotify }) {
+  const { t } = useI18n();
   const [email, setEmail] = useState('joao.silva@empresa.com');
   const [password, setPassword] = useState('••••••••');
   const [showPassword, setShowPassword] = useState(false);
@@ -13,11 +15,11 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!email) {
-      setError('Por favor, informe seu e-mail.');
+      setError(t('login.errorEmail'));
       return;
     }
     if (!password) {
-      setError('Por favor, digite sua senha.');
+      setError(t('login.errorPassword'));
       return;
     }
 
@@ -27,8 +29,8 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
     // Simulate responsive authentication flow
     setTimeout(() => {
       setLoading(false);
-      if (onNotify) onNotify('Autenticado com sucesso! Bem-vindo de volta.');
-      onLoginSuccess();
+      if (onNotify) onNotify(t('login.successNotify'));
+      onLoginSuccess(email);
     }, 600);
   };
 
@@ -36,8 +38,8 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      if (onNotify) onNotify('Autenticado via Microsoft SSO.');
-      onLoginSuccess();
+      if (onNotify) onNotify(t('login.ssoNotify'));
+      onLoginSuccess(email);
     }, 700);
   };
 
@@ -55,10 +57,10 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
       <div className="login-card-container">
         {/* Brand header */}
         <div className="login-card-header">
-          <BrandLogo variant="light" size="default" clickable onClick={() => onNavigate('landing')} />
-          <h1 className="login-card-title">Bem-vindo(a)!</h1>
+          <BrandLogo size="default" clickable onClick={() => onNavigate('landing')} />
+          <h1 className="login-card-title">{t('login.welcome')}</h1>
           <p className="login-card-subtitle">
-            Entre para continuar gerenciando os ativos de TI da sua empresa.
+            {t('login.subtitle')}
           </p>
         </div>
 
@@ -71,12 +73,12 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
         {/* Form */}
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">E-mail</label>
+            <label htmlFor="email">{t('login.email')}</label>
             <div className="input-with-icon">
               <input
                 id="email"
                 type="email"
-                placeholder="seu@email.com"
+                placeholder={t('login.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -85,12 +87,12 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Senha</label>
+            <label htmlFor="password">{t('login.password')}</label>
             <div className="input-with-action">
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
+                placeholder={t('login.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -99,7 +101,7 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
                 type="button"
                 className="password-toggle-btn"
                 onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+                aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -113,14 +115,14 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
               />
-              <span>Lembrar-me</span>
+              <span>{t('login.rememberMe')}</span>
             </label>
             <button
               type="button"
               className="forgot-password-link"
-              onClick={() => onNotify && onNotify('Link de recuperação enviado para seu e-mail cadastrado.')}
+              onClick={() => onNotify && onNotify(t('login.forgotPasswordNotify'), 'info')}
             >
-              Esqueceu sua senha?
+              {t('login.forgotPassword')}
             </button>
           </div>
 
@@ -130,15 +132,15 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
             disabled={loading}
           >
             {loading ? (
-              <span className="spinner-loader" />
+              <span className="btn-spinner" aria-label={t('login.submitting')} />
             ) : (
-              <span>Entrar</span>
+              <span>{t('login.submit')}</span>
             )}
           </button>
         </form>
 
         <div className="login-divider">
-          <span>ou continue com</span>
+          <span>{t('login.or')}</span>
         </div>
 
         {/* Microsoft SSO button */}
@@ -155,37 +157,36 @@ export function LoginView({ onLoginSuccess, onNavigate, onNotify }) {
             <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
             <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
           </svg>
-          <span>Entrar com Microsoft</span>
+          <span>{t('login.ssoMicrosoft')}</span>
         </button>
 
         <div className="login-footer">
-          <span>Não tem uma conta?</span>{' '}
+          <span>{t('login.noAccount')}</span>{' '}
           <button
             type="button"
             className="signup-link"
-            onClick={() => onNavigate('dashboard')}
+            onClick={onRequestAccess}
           >
-            Solicitar acesso
+            {t('landing.requestAccess')}
           </button>
         </div>
 
         {/* Demo Fast Access helper */}
         <div className="login-demo-helper">
-          <small>Ambiente de Demonstração Corporativa</small>
+          <small>TECHASSETS Enterprise</small>
           <button
             type="button"
             className="demo-quick-btn"
             onClick={() => {
               setEmail('joao.silva@empresa.com');
               setPassword('123456');
-              onLoginSuccess();
+              onLoginSuccess('joao.silva@empresa.com');
             }}
           >
-            <Check size={14} /> Entrar direto como Administrador
+            <Check size={14} /> {t('login.demoAdmin')}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

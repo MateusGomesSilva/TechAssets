@@ -1,85 +1,110 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ChevronRight,
   Edit,
   ChevronDown,
   Maximize2,
   FileText,
-  Clock,
   Wrench,
-  Cpu,
-  Layers,
-  HardDrive,
-  Monitor,
   Download,
   Plus,
-  CheckCircle2,
-  Share2,
   QrCode,
   Printer,
   Trash2,
   ArrowLeft
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
+import {
+  useI18n,
+  categoryLabel,
+  statusLabel,
+  maintTypeLabel,
+  movementTypeLabel,
+  formatDate,
+  formatMoment,
+  resolveText
+} from '../i18n';
+import { toInputDate } from '../utils/dates';
+
+const TABS = ['summary', 'movements', 'maintenances', 'documents'];
+const EDIT_STATUSES = ['Em uso', 'Disponível', 'Em manutenção', 'Descartado'];
+
+// Sample attachments (names are translated, brands / document numbers are not)
+const DOCUMENTS = [
+  { key: 'detail.doc1', size: '1.2 MB', date: '10/03/2024' },
+  { key: 'detail.doc2', size: '480 KB', date: '12/03/2024' },
+  { key: 'detail.doc3', size: '820 KB', date: '12/03/2024' }
+];
 
 export function AssetDetailView({
   asset,
   onBack,
   onNavigate,
   onNotify,
+  onUpdateAsset,
   maintenances = [],
-  onOpenMaintenanceModal
+  movements = []
 }) {
-  const [activeTab, setActiveTab] = useState('Resumo');
+  const { t, language } = useI18n();
+  const [activeTab, setActiveTab] = useState('summary');
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', person: '', location: '', status: 'Em uso', warranty: '' });
 
-  // Fallback if no asset selected
-  const currentAsset = asset || {
-    id: 'NB-0001',
-    name: 'MacBook Pro 14”',
-    category: 'Notebook',
-    model: 'MacBook Pro 14” (M2 Pro)',
-    serial: 'C02X1234XQ1',
-    status: 'Em uso',
-    person: 'João da Silva',
-    location: 'Desenvolvimento',
-    date: '12/03/2024',
-    warranty: '12/03/2026',
-    specs: {
-      processor: 'Apple M2 Pro',
-      ram: '16 GB',
-      storage: '512 GB',
-      os: 'macOS Sonoma'
+  // Load the form with the current record whenever the modal opens
+  useEffect(() => {
+    if (showEditModal && asset) {
+      setEditForm({
+        name: asset.name || '',
+        person: asset.person === '—' ? '' : asset.person || '',
+        location: asset.location || '',
+        status: asset.status || 'Em uso',
+        warranty: toInputDate(asset.warranty)
+      });
     }
+  }, [showEditModal, asset]);
+
+  if (!asset) {
+    return (
+      <div className="view-container asset-detail-view">
+        <div className="card-full-panel empty-detail-panel">
+          <p>{t('detail.notFound')}</p>
+          <button className="btn btn-primary" onClick={onBack}>
+            <ArrowLeft size={15} /> {t('detail.back')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentAsset = asset;
+  const assetMaintenances = maintenances.filter((m) => m.assetId === currentAsset.id);
+  const assetMovements = movements.filter((m) => m.assetId === currentAsset.id);
+
+  const handleSaveEdit = (e) => {
+    e.preventDefault();
+    if (!editForm.name.trim() || !editForm.location.trim()) {
+      if (onNotify) onNotify(t('detail.editRequired'), 'error');
+      return;
+    }
+    const ok = onUpdateAsset ? onUpdateAsset(currentAsset.id, editForm) : false;
+    setShowEditModal(false);
+    if (onNotify && ok) onNotify(t('detail.editSuccess'));
   };
-
-  const assetMaintenances = maintenances.filter(
-    (m) => m.assetId === currentAsset.id || m.assetName === currentAsset.name
-  );
-
-  const assetMovements = [
-    { date: '12/03/2024 10:30', from: 'Estoque Central', to: 'Desenvolvimento', responsible: 'João da Silva', type: 'Entrega' },
-    { date: '08/03/2024 14:15', from: 'Fornecedor Apple', to: 'Estoque Central', responsible: 'Almoxarifado TI', type: 'Entrada' }
-  ];
-
-  const documents = [
-    { name: 'Nota Fiscal de Compra (NF-e 88291)', size: '1.2 MB', date: '10/03/2024' },
-    { name: 'Termo de Responsabilidade e Entrega Assinado', size: '480 KB', date: '12/03/2024' },
-    { name: 'Certificado de Garantia AppleCare', size: '820 KB', date: '12/03/2024' }
-  ];
 
   return (
     <div className="view-container asset-detail-view">
-      {/* Top Breadcrumbs (Matching 05-detalhes-do-ativo.png) */}
+      {/* Top Breadcrumbs */}
       <div className="detail-breadcrumb-bar">
-        <button className="breadcrumb-back-btn" onClick={onBack}>
+        <button className="breadcrumb-back-btn" onClick={onBack} aria-label={t('detail.back')}>
           <ArrowLeft size={16} />
         </button>
         <div className="breadcrumb-path">
-          <span className="breadcrumb-segment" onClick={onBack}>Ativos</span>
+          <span className="breadcrumb-segment" onClick={onBack}>
+            {t('nav.allAssets')}
+          </span>
           <ChevronRight size={14} className="breadcrumb-sep" />
           <span className="breadcrumb-current">
             {currentAsset.name} ({currentAsset.id})
@@ -93,10 +118,9 @@ export function AssetDetailView({
       {/* Main Detail Header Card */}
       <div className="asset-detail-card">
         <div className="detail-grid-layout">
-          {/* Left Column: Interactive Product Photo Showcase */}
+          {/* Left Column: Product Photo Showcase */}
           <div className="detail-media-column">
             <div className="product-main-preview">
-              {/* Modern CSS hardware preview with fluid glowing wave */}
               <div className="laptop-preview-stage">
                 <div className="laptop-device-body">
                   <div className="laptop-screen-frame">
@@ -116,14 +140,15 @@ export function AssetDetailView({
 
               <button
                 className="btn-expand-preview"
-                title="Ampliar visualização"
-                onClick={() => onNotify && onNotify('Visualização em alta definição.')}
+                title={t('detail.expandPreview')}
+                aria-label={t('detail.expandPreview')}
+                onClick={() => onNotify && onNotify(t('detail.hdPreview'))}
               >
                 <Maximize2 size={16} />
               </button>
             </div>
 
-            {/* 4 Thumbnails Gallery */}
+            {/* Thumbnails Gallery */}
             <div className="product-thumbnails-strip">
               {[0, 1, 2, 3].map((idx) => (
                 <div
@@ -136,21 +161,19 @@ export function AssetDetailView({
               ))}
               <button
                 className="thumbnail-more-btn"
-                onClick={() => onNotify && onNotify('Galeria completa com 6 fotos registradas.')}
-                title="Ver todas as fotos"
+                onClick={() => onNotify && onNotify(t('detail.galleryInfo'))}
+                title={t('detail.viewAllPhotos')}
+                aria-label={t('detail.viewAllPhotos')}
               >
                 <Maximize2 size={14} />
               </button>
             </div>
 
-            {/* Action Buttons under photo (Matching 05-detalhes-do-ativo.png) */}
+            {/* Action Buttons under photo */}
             <div className="detail-photo-actions">
-              <button
-                className="btn-detail-edit"
-                onClick={() => setShowEditModal(true)}
-              >
+              <button className="btn-detail-edit" onClick={() => setShowEditModal(true)}>
                 <Edit size={15} />
-                <span>Editar</span>
+                <span>{t('detail.edit')}</span>
               </button>
 
               <div className="dropdown-actions-wrapper">
@@ -158,7 +181,7 @@ export function AssetDetailView({
                   className="btn-detail-more"
                   onClick={() => setShowActionsDropdown(!showActionsDropdown)}
                 >
-                  <span>Ações</span>
+                  <span>{t('detail.actions')}</span>
                   <ChevronDown size={14} />
                 </button>
 
@@ -172,7 +195,7 @@ export function AssetDetailView({
                       }}
                     >
                       <QrCode size={15} />
-                      <span>Gerar QR Code / Etiqueta</span>
+                      <span>{t('detail.generateQr')}</span>
                     </button>
                     <button
                       className="dropdown-menu-item"
@@ -182,7 +205,7 @@ export function AssetDetailView({
                       }}
                     >
                       <Printer size={15} />
-                      <span>Imprimir Ficha Técnica</span>
+                      <span>{t('detail.printSheet')}</span>
                     </button>
                     <button
                       className="dropdown-menu-item"
@@ -192,18 +215,18 @@ export function AssetDetailView({
                       }}
                     >
                       <Wrench size={15} />
-                      <span>Agendar Manutenção</span>
+                      <span>{t('detail.scheduleMaint')}</span>
                     </button>
                     <div className="dropdown-divider" />
                     <button
                       className="dropdown-menu-item item-danger"
                       onClick={() => {
                         setShowActionsDropdown(false);
-                        if (onNotify) onNotify('Ativo marcado para análise de descarte.');
+                        if (onNotify) onNotify(t('detail.discardInfo'));
                       }}
                     >
                       <Trash2 size={15} />
-                      <span>Solicitar Descarte</span>
+                      <span>{t('detail.requestDiscard')}</span>
                     </button>
                   </div>
                 )}
@@ -211,63 +234,63 @@ export function AssetDetailView({
             </div>
           </div>
 
-          {/* Right Column: Specification Metadata (Matching 05-detalhes-do-ativo.png) */}
+          {/* Right Column: Specification Metadata */}
           <div className="detail-meta-column">
             <h1 className="detail-asset-name">{currentAsset.name}</h1>
 
             <div className="detail-fields-list">
               <div className="detail-field-row">
-                <span className="field-label">Patrimônio</span>
+                <span className="field-label">{t('assets.colId')}</span>
                 <span className="field-value font-mono">{currentAsset.id}</span>
               </div>
               <div className="detail-field-row">
-                <span className="field-label">Categoria</span>
-                <span className="field-value">{currentAsset.category}</span>
+                <span className="field-label">{t('assets.colCategory')}</span>
+                <span className="field-value">{categoryLabel(t, currentAsset.category)}</span>
               </div>
               <div className="detail-field-row">
-                <span className="field-label">Modelo</span>
-                <span className="field-value">{currentAsset.model}</span>
+                <span className="field-label">{t('detail.model')}</span>
+                <span className="field-value">{currentAsset.model || '—'}</span>
               </div>
               <div className="detail-field-row">
-                <span className="field-label">Número de série</span>
-                <span className="field-value font-mono">{currentAsset.serial}</span>
+                <span className="field-label">{t('detail.serial')}</span>
+                <span className="field-value font-mono">{currentAsset.serial || '—'}</span>
               </div>
               <div className="detail-field-row">
-                <span className="field-label">Estado</span>
-                <span className="field-value">{currentAsset.status}</span>
+                <span className="field-label">{t('assets.colStatus')}</span>
+                <span className="field-value">{statusLabel(t, currentAsset.status)}</span>
               </div>
               <div className="detail-field-row">
-                <span className="field-label">Responsável</span>
+                <span className="field-label">{t('assets.colPerson')}</span>
                 <span className="field-value text-primary-link">{currentAsset.person || '—'}</span>
               </div>
               <div className="detail-field-row">
-                <span className="field-label">Localização</span>
-                <span className="field-value">{currentAsset.location || 'Estoque Central'}</span>
+                <span className="field-label">{t('assets.colLocation')}</span>
+                <span className="field-value">{currentAsset.location || '—'}</span>
               </div>
               <div className="detail-field-row">
-                <span className="field-label">Data de aquisição</span>
-                <span className="field-value">{currentAsset.date || '12/03/2024'}</span>
+                <span className="field-label">{t('detail.acquisitionDate')}</span>
+                <span className="field-value">{formatDate(currentAsset.date, language)}</span>
               </div>
               <div className="detail-field-row">
-                <span className="field-label">Garantia até</span>
-                <span className="field-value">{currentAsset.warranty || '12/03/2026'}</span>
+                <span className="field-label">{t('detail.warrantyUntil')}</span>
+                <span className="field-value">{formatDate(currentAsset.warranty, language)}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Tabs Section (Matching 05-detalhes-do-ativo.png) */}
+      {/* Bottom Tabs Section */}
       <div className="detail-tabs-section">
         <div className="tabs-header-bar">
-          {['Resumo', 'Movimentações', 'Manutenções', 'Documentos'].map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab}
               className={`detail-tab-btn ${activeTab === tab ? 'active' : ''}`}
               onClick={() => setActiveTab(tab)}
             >
-              <span>{tab}</span>
-              {tab === 'Manutenções' && assetMaintenances.length > 0 && (
+              <span>{t(`detail.tab.${tab}`)}</span>
+              {tab === 'maintenances' && assetMaintenances.length > 0 && (
                 <span className="tab-badge-counter">{assetMaintenances.length}</span>
               )}
             </button>
@@ -275,74 +298,62 @@ export function AssetDetailView({
         </div>
 
         <div className="tab-content-container">
-          {/* TAB 1: RESUMO (Hardware Specifications) */}
-          {activeTab === 'Resumo' && (
+          {/* TAB 1: SUMMARY (Hardware Specifications) */}
+          {activeTab === 'summary' && (
             <div className="specs-grid-cards">
               <div className="spec-card">
-                <span className="spec-card-label">Processador</span>
-                <strong className="spec-card-value">
-                  {currentAsset.specs?.processor || 'Apple M2 Pro'}
-                </strong>
+                <span className="spec-card-label">{t('detail.processor')}</span>
+                <strong className="spec-card-value">{currentAsset.specs?.processor || '—'}</strong>
               </div>
-
               <div className="spec-card">
-                <span className="spec-card-label">Memória RAM</span>
-                <strong className="spec-card-value">
-                  {currentAsset.specs?.ram || '16 GB'}
-                </strong>
+                <span className="spec-card-label">{t('detail.ram')}</span>
+                <strong className="spec-card-value">{currentAsset.specs?.ram || '—'}</strong>
               </div>
-
               <div className="spec-card">
-                <span className="spec-card-label">Armazenamento</span>
-                <strong className="spec-card-value">
-                  {currentAsset.specs?.storage || '512 GB'}
-                </strong>
+                <span className="spec-card-label">{t('detail.storage')}</span>
+                <strong className="spec-card-value">{currentAsset.specs?.storage || '—'}</strong>
               </div>
-
               <div className="spec-card">
-                <span className="spec-card-label">Sistema Operacional</span>
-                <strong className="spec-card-value">
-                  {currentAsset.specs?.os || 'macOS Sonoma'}
-                </strong>
+                <span className="spec-card-label">{t('detail.os')}</span>
+                <strong className="spec-card-value">{currentAsset.specs?.os || '—'}</strong>
               </div>
             </div>
           )}
 
-          {/* TAB 2: MOVIMENTAÇÕES */}
-          {activeTab === 'Movimentações' && (
+          {/* TAB 2: MOVEMENTS (real records of this asset) */}
+          {activeTab === 'movements' && (
             <div className="tab-pane-movements">
-              <div className="timeline-clean">
-                {assetMovements.map((mov, idx) => (
-                  <div key={idx} className="timeline-item">
-                    <div className="timeline-dot" />
-                    <div className="timeline-body">
-                      <div className="timeline-meta">
-                        <span className="timeline-type">{mov.type}</span>
-                        <span className="timeline-date">{mov.date}</span>
+              {assetMovements.length > 0 ? (
+                <div className="timeline-clean">
+                  {assetMovements.map((mov) => (
+                    <div key={mov.id} className="timeline-item">
+                      <div className="timeline-dot" />
+                      <div className="timeline-body">
+                        <div className="timeline-meta">
+                          <span className="timeline-type">{movementTypeLabel(t, mov.type)}</span>
+                          <span className="timeline-date">{formatMoment(mov.at, language, t)}</span>
+                        </div>
+                        <p className="timeline-route">
+                          {t('detail.origin')}: <b>{resolveText(t, mov.from)}</b> → {t('detail.destination')}:{' '}
+                          <b>{resolveText(t, mov.to)}</b>
+                        </p>
                       </div>
-                      <p className="timeline-route">
-                        Origem: <b>{mov.from}</b> → Destino: <b>{mov.to}</b>
-                      </p>
-                      <small className="timeline-author">Responsável: {mov.responsible}</small>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-dash">{t('detail.noMovements')}</p>
+              )}
             </div>
           )}
 
-          {/* TAB 3: MANUTENÇÕES */}
-          {activeTab === 'Manutenções' && (
+          {/* TAB 3: MAINTENANCES */}
+          {activeTab === 'maintenances' && (
             <div className="tab-pane-maintenances">
               <div className="pane-header-actions">
-                <p className="pane-subtitle">
-                  Histórico de intervenções e manutenções registradas para este equipamento.
-                </p>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => onNavigate('maintenances')}
-                >
-                  <Plus size={15} /> Nova manutenção
+                <p className="pane-subtitle">{t('detail.maintSubtitle')}</p>
+                <button className="btn btn-primary btn-sm" onClick={() => onNavigate('maintenances')}>
+                  <Plus size={15} /> {t('detail.newMaintenance')}
                 </button>
               </div>
 
@@ -350,30 +361,34 @@ export function AssetDetailView({
                 <table className="clean-data-table">
                   <thead>
                     <tr>
-                      <th>Data</th>
-                      <th>Tipo</th>
-                      <th>Descrição</th>
-                      <th>Prestador</th>
-                      <th>Custo</th>
-                      <th>Status</th>
+                      <th>{t('maint.colDate')}</th>
+                      <th>{t('maint.colType')}</th>
+                      <th>{t('maint.colDescription')}</th>
+                      <th>{t('maint.colProvider')}</th>
+                      <th>{t('maint.colCost')}</th>
+                      <th>{t('maint.colStatus')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {assetMaintenances.length > 0 ? (
                       assetMaintenances.map((m) => (
                         <tr key={m.id}>
-                          <td>{m.date}</td>
-                          <td><b>{m.type}</b></td>
+                          <td>{formatDate(m.date, language)}</td>
+                          <td>
+                            <b>{maintTypeLabel(t, m.type)}</b>
+                          </td>
                           <td>{m.description}</td>
                           <td>{m.provider}</td>
                           <td>{m.cost}</td>
-                          <td><StatusBadge value={m.status} size="sm" /></td>
+                          <td>
+                            <StatusBadge value={m.status} size="sm" />
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
                         <td colSpan={6} className="td-empty-state">
-                          Nenhuma manutenção pendente para este equipamento.
+                          {t('detail.noMaintenance')}
                         </td>
                       </tr>
                     )}
@@ -383,26 +398,28 @@ export function AssetDetailView({
             </div>
           )}
 
-          {/* TAB 4: DOCUMENTOS */}
-          {activeTab === 'Documentos' && (
+          {/* TAB 4: DOCUMENTS */}
+          {activeTab === 'documents' && (
             <div className="tab-pane-documents">
               <div className="documents-list">
-                {documents.map((doc, idx) => (
-                  <div key={idx} className="document-item-row">
+                {DOCUMENTS.map((doc) => (
+                  <div key={doc.key} className="document-item-row">
                     <div className="doc-icon">
                       <FileText size={20} />
                     </div>
                     <div className="doc-meta">
-                      <span className="doc-name">{doc.name}</span>
-                      <small className="doc-sub">{doc.size} • Anexado em {doc.date}</small>
+                      <span className="doc-name">{t(doc.key)}</span>
+                      <small className="doc-sub">
+                        {doc.size} • {t('detail.attachedOn', { date: formatDate(doc.date, language) })}
+                      </small>
                     </div>
                     <button
                       className="btn-doc-download"
-                      onClick={() => onNotify && onNotify(`Download de ${doc.name} iniciado.`)}
-                      title="Baixar arquivo"
+                      onClick={() => onNotify && onNotify(t('detail.downloadStarted', { name: t(doc.key) }))}
+                      title={t('detail.downloadFile')}
                     >
                       <Download size={16} />
-                      <span>Download</span>
+                      <span>{t('detail.download')}</span>
                     </button>
                   </div>
                 ))}
@@ -417,16 +434,21 @@ export function AssetDetailView({
         <div className="modal-backdrop-scrim" onClick={() => setShowQrModal(false)}>
           <div className="modal-box-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Etiqueta Patrimonial com QR Code</h2>
-              <button className="modal-close-btn" onClick={() => setShowQrModal(false)}>×</button>
+              <h2>{t('detail.qrTitle')}</h2>
+              <button
+                className="modal-close-btn"
+                onClick={() => setShowQrModal(false)}
+                aria-label={t('common.close')}
+              >
+                ×
+              </button>
             </div>
             <div className="qr-modal-body">
               <div className="qr-sticker-preview">
-                <div className="sticker-header">TECHASSETS • PATRIMÔNIO</div>
+                <div className="sticker-header">{t('detail.qrHeader')}</div>
                 <div className="sticker-qr-code">
                   <svg viewBox="0 0 100 100" width="120" height="120">
                     <rect width="100" height="100" fill="#fff" />
-                    {/* Simulated QR Pattern */}
                     <path d="M10 10h25v25h-25zM15 15h15v15h-15zM65 10h25v25h-25zM70 15h15v15h-15zM10 65h25v25h-25zM15 70h15v15h-15zM45 10h10v10h-10zM45 30h10v10h-10zM10 45h10v10h-10zM30 45h15v15h-15zM55 45h20v10h-20zM85 45h10v20h-10zM45 65h15v15h-15zM70 65h10v25h-10zM85 75h10v15h-10z" fill="#0b1220" />
                   </svg>
                 </div>
@@ -435,7 +457,7 @@ export function AssetDetailView({
               </div>
               <div className="modal-actions-bar">
                 <button className="btn btn-secondary" onClick={() => setShowQrModal(false)}>
-                  Fechar
+                  {t('common.close')}
                 </button>
                 <button
                   className="btn btn-primary"
@@ -444,7 +466,7 @@ export function AssetDetailView({
                     setShowQrModal(false);
                   }}
                 >
-                  <Printer size={15} /> Imprimir Etiqueta
+                  <Printer size={15} /> {t('detail.printLabel')}
                 </button>
               </div>
             </div>
@@ -457,50 +479,78 @@ export function AssetDetailView({
         <div className="modal-backdrop-scrim" onClick={() => setShowEditModal(false)}>
           <div className="modal-box-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Editar Informações do Ativo</h2>
-              <button className="modal-close-btn" onClick={() => setShowEditModal(false)}>×</button>
+              <h2>{t('detail.editTitle')}</h2>
+              <button
+                className="modal-close-btn"
+                onClick={() => setShowEditModal(false)}
+                aria-label={t('common.close')}
+              >
+                ×
+              </button>
             </div>
-            <div className="modal-body-form">
+            <form className="modal-body-form" onSubmit={handleSaveEdit}>
               <div className="form-group">
-                <label>Nome do Equipamento</label>
-                <input defaultValue={currentAsset.name} />
+                <label htmlFor="edit-name">{t('detail.editName')}</label>
+                <input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
               </div>
               <div className="form-group">
-                <label>Responsável Atual</label>
-                <input defaultValue={currentAsset.person} />
+                <label htmlFor="edit-person">{t('detail.editPerson')}</label>
+                <input
+                  id="edit-person"
+                  value={editForm.person}
+                  placeholder={t('detail.editPersonPlaceholder')}
+                  onChange={(e) => setEditForm({ ...editForm, person: e.target.value })}
+                />
               </div>
               <div className="form-group">
-                <label>Localização</label>
-                <input defaultValue={currentAsset.location} />
+                <label htmlFor="edit-location">{t('assets.colLocation')}</label>
+                <input
+                  id="edit-location"
+                  value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  required
+                />
               </div>
               <div className="form-group">
-                <label>Estado</label>
-                <select defaultValue={currentAsset.status}>
-                  <option>Em uso</option>
-                  <option>Disponível</option>
-                  <option>Em manutenção</option>
-                  <option>Descarte</option>
+                <label htmlFor="edit-status">{t('assets.colStatus')}</label>
+                <select
+                  id="edit-status"
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                >
+                  {EDIT_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {statusLabel(t, s)}
+                    </option>
+                  ))}
                 </select>
               </div>
+              <div className="form-group">
+                <label htmlFor="edit-warranty">{t('detail.warrantyUntil')}</label>
+                <input
+                  id="edit-warranty"
+                  type="date"
+                  value={editForm.warranty}
+                  onChange={(e) => setEditForm({ ...editForm, warranty: e.target.value })}
+                />
+              </div>
               <div className="modal-actions-bar">
-                <button className="btn btn-secondary" onClick={() => setShowEditModal(false)}>
-                  Cancelar
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>
+                  {t('common.cancel')}
                 </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    if (onNotify) onNotify('Alterações no ativo salvas com sucesso!');
-                  }}
-                >
-                  Salvar Alterações
+                <button type="submit" className="btn btn-primary">
+                  {t('detail.saveChanges')}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
     </div>
   );
 }
-
