@@ -1,4 +1,4 @@
-import { storage } from './storage';
+import { storage } from './storage.js';
 
 export const SUPPORTED_THEMES = ['light', 'dark', 'system'];
 export const SUPPORTED_LANGUAGES = ['pt-BR', 'en-US', 'es-ES'];

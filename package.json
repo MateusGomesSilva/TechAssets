@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "npm --prefix techassets run dev",
     "build": "npm --prefix techassets run build",
-    "preview": "npm --prefix techassets run preview"
+    "preview": "npm --prefix techassets run preview",
+    "test": "npm --prefix techassets test"
   }
 }
 

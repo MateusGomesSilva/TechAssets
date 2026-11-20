@@ -1,5 +1,5 @@
-import { storage } from './storage';
-import { INITIAL_USER } from '../data/mockData';
+import { storage } from './storage.js';
+import { INITIAL_USER } from '../data/mockData.js';
 
 const SESSION_KEY = 'techassets:session';
 

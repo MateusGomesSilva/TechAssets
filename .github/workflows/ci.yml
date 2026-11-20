@@ -24,3 +24,27 @@ jobs:
 
       - name: Executar Compilação e Testes (Maven)
         run: mvn clean test
+
+  frontend:
+    name: Testes e Build do Frontend (React/Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: techassets/package-lock.json
+
+      - name: Instalar Dependências
+        run: npm --prefix techassets ci
+
+      - name: Executar Testes Automatizados do Frontend
+        run: npm --prefix techassets test
+
+      - name: Executar Build de Produção
+        run: npm --prefix techassets run build
